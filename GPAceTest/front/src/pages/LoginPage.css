@@ -1,0 +1,169 @@
+/* Login Page */
+
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f7fb;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.login-card {
+    width: 360px;
+    max-width: 95%;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(20, 30, 50, 0.08);
+    box-sizing: border-box;
+    position: relative;
+}
+
+.login-title {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+}
+
+.login-sub {
+    margin: 0 0 16px 0;
+    color: #555;
+    font-size: 14px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-label {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #333;
+}
+
+.login-input {
+    margin-top: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #dfe6ef;
+    box-sizing: border-box;
+}
+
+.login-input:focus {
+    outline: none;
+    border-color: #0b66ff;
+    box-shadow: 0 0 0 2px rgba(11, 102, 255, 0.1);
+}
+
+.login-checkbox {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #333;
+}
+
+.login-checkbox input {
+    margin-right: 8px;
+}
+
+.login-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btn-primary {
+    flex: 1;
+    background: #0b66ff;
+    color: #fff;
+    border: none;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #0a5ae8;
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    flex: 1;
+    background: #eef3ff;
+    color: #0b66ff;
+    border: none;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #dde8ff;
+}
+
+.btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.login-guest-btn {
+    margin-top: 12px;
+}
+
+.btn-ghost {
+    width: 100%;
+    background: transparent;
+    color: #0b66ff;
+    border: 1px solid #e0e8ff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-ghost:hover:not(:disabled) {
+    background: #f5f9ff;
+}
+
+.btn-ghost:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.login-error {
+    margin-top: 12px;
+    color: #b00020;
+    font-size: 13px;
+}
+
+.login-back {
+    position: absolute;
+    top: 0px;
+    left: 10px;
+    background: transparent;
+    border: none;
+    color: #0b66ff;
+    cursor: pointer;
+    padding: 6px;
+    font-size: 13px;
+}
+
+.login-back:hover {
+    opacity: 0.7;
+}
