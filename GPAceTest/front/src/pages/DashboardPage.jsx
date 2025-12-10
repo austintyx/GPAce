@@ -22,7 +22,7 @@ function DashboardPage() {
       <aside className="sidebar">
         <div className="logo">
           <div className="logo-icon">📊</div>
-          <h2>GradePath</h2>
+          <h2>GPAce</h2>
         </div>
         <nav className="nav-menu">
           <a href="/dashboard" className="nav-item active">
