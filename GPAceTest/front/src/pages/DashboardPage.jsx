@@ -344,6 +344,8 @@ function DashboardPage() {
   const initials = getInitials(displayName);
   const [user, setUser] = useState(getStoredUser);
   const [targetGPA, setTargetGPA] = useState(3.5);
+  const [primaryTargetGPA, setPrimaryTargetGPA] = useState(3.5);
+  const [secondaryTargetGPA, setSecondaryTargetGPA] = useState(3.5);
   const [courses, setCourses] = useState([]);
   const [summary, setSummary] = useState({ gpa: 0, creditsAttempted: 0, creditsCompleted: 0 });
   const [plan, setPlan] = useState(null);
@@ -847,6 +849,30 @@ function DashboardPage() {
     primary: user?.primaryDegreeName || user?.course || 'Degree 1',
     secondary: user?.secondaryDegreeName || 'Degree 2'
   };
+  const activeSummaryBucket = doubleDegree ? (selectedGpaBucket === 'secondary' ? 'secondary' : 'primary') : 'overall';
+  const currentSummaryGpa = doubleDegree
+    ? Number(summary.buckets?.[activeSummaryBucket]?.gpa || 0)
+    : currentGPA;
+  const currentSummaryCredits = doubleDegree
+    ? summary.buckets?.[activeSummaryBucket]?.creditsCompleted || 0
+    : summary.creditsCompleted || 0;
+  const primaryRequiredPlan = useMemo(
+    () => buildRequiredAverageForGpa(courses, 'primary', primaryTargetGPA),
+    [courses, primaryTargetGPA]
+  );
+  const secondaryRequiredPlan = useMemo(
+    () => buildRequiredAverageForGpa(courses, 'secondary', secondaryTargetGPA),
+    [courses, secondaryTargetGPA]
+  );
+
+  const summaryRequiredPlan = doubleDegree
+    ? (activeSummaryBucket === 'secondary' ? secondaryRequiredPlan : primaryRequiredPlan)
+    : {
+        requiredAverageGradePoint: Number(requiredAverage || 0),
+        futureCredits: remainingCredits,
+        possible: !isPlanImpossible,
+        message: plan?.message || 'Add planned modules to calculate this.'
+      };
   const selectedGpaMeta = {
     overall: { title: 'Current GPA', label: 'Overall' },
     primary: { title: `${degreeNames.primary} GPA`, label: 'Degree 1' },
@@ -858,14 +884,6 @@ function DashboardPage() {
     : [];
   const requiredAverage = Number(plan?.requiredAverageGradePoint || 0);
   const isPlanImpossible = plan && !plan.possible;
-  const primaryRequiredPlan = useMemo(
-    () => buildRequiredAverageForGpa(courses, 'primary', targetGPA),
-    [courses, targetGPA]
-  );
-  const secondaryRequiredPlan = useMemo(
-    () => buildRequiredAverageForGpa(courses, 'secondary', targetGPA),
-    [courses, targetGPA]
-  );
   const gradePlanPermutations = useMemo(
     () => generateGradePlanPermutations(courses, gradePlanBucket, targetGPA),
     [courses, gradePlanBucket, targetGPA]
@@ -875,7 +893,7 @@ function DashboardPage() {
     <div className="dashboard-container">
       <aside className="sidebar">
         <div className="logo">
-          <div className="logo-icon">GP</div>
+          <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="logo-icon" />
           <h2>GPAce</h2>
         </div>
         <nav className="nav-menu">
@@ -915,121 +933,122 @@ function DashboardPage() {
           </div>
         )}
 
-        <div className="stats-grid">
-          <button
-            className={`stat-card stat-card-button ${selectedGpaBucket === 'overall' ? 'selected' : ''}`}
-            type="button"
-            onClick={() => setSelectedGpaBucket((current) => current === 'overall' ? '' : 'overall')}
-          >
-            <div className="stat-header">
-              <span className="stat-label">CURRENT GPA</span>
-              <span className="stat-icon">{isGuest ? 'Guest' : '5.0 scale'}</span>
-            </div>
-            <div className="stat-value">{currentGPA.toFixed(2)}</div>
-            <div className="stat-subtitle">Based on {summary.creditsCompleted || 0} total completed credits</div>
-          </button>
+        {doubleDegree ? (
+          <div className="stats-grid summary-grid double-degree-grid">
+            {['primary', 'secondary'].map((bucket) => {
+              const name = bucket === 'primary' ? degreeNames.primary : degreeNames.secondary;
+              const current = Number(summary.buckets?.[bucket]?.gpa || 0);
+              const credits = summary.buckets?.[bucket]?.creditsCompleted || 0;
+              const target = bucket === 'primary' ? primaryTargetGPA : secondaryTargetGPA;
+              const setTarget = bucket === 'primary' ? setPrimaryTargetGPA : setSecondaryTargetGPA;
+              const requiredPlan = bucket === 'primary' ? primaryRequiredPlan : secondaryRequiredPlan;
 
-          {doubleDegree && (
-            <>
-              <button
-                className={`stat-card stat-card-button ${selectedGpaBucket === 'primary' ? 'selected' : ''}`}
-                type="button"
-                onClick={() => setSelectedGpaBucket((current) => current === 'primary' ? '' : 'primary')}
-              >
-                <div className="stat-header">
-                  <span className="stat-label">{degreeNames.primary} GPA</span>
-                  <span className="stat-icon">Degree 1</span>
-                </div>
-                <div className="stat-value">{Number(summary.buckets?.primary?.gpa || 0).toFixed(2)}</div>
-                <div className="stat-subtitle">Based on {summary.buckets?.primary?.creditsCompleted || 0} total completed credits</div>
-              </button>
+              return (
+                <React.Fragment key={bucket}>
+                  <button
+                    className={`stat-card stat-card-button ${selectedGpaBucket === bucket ? 'selected' : ''}`}
+                    type="button"
+                    onClick={() => setSelectedGpaBucket((current) => current === bucket ? '' : bucket)}
+                  >
+                    <div className="stat-header">
+                      <span className="stat-label">{name} GPA</span>
+                      <span className="stat-icon">Degree {bucket === 'primary' ? '1' : '2'}</span>
+                    </div>
+                    <div className="stat-value">{current.toFixed(2)}</div>
+                    <div className="stat-subtitle">Based on {credits} total completed credits</div>
+                  </button>
 
-              <button
-                className={`stat-card stat-card-button ${selectedGpaBucket === 'secondary' ? 'selected' : ''}`}
-                type="button"
-                onClick={() => setSelectedGpaBucket((current) => current === 'secondary' ? '' : 'secondary')}
-              >
-                <div className="stat-header">
-                  <span className="stat-label">{degreeNames.secondary} GPA</span>
-                  <span className="stat-icon">Degree 2</span>
-                </div>
-                <div className="stat-value">{Number(summary.buckets?.secondary?.gpa || 0).toFixed(2)}</div>
-                <div className="stat-subtitle">
-                  Based on {summary.buckets?.secondary?.creditsCompleted || 0} total completed credits
-                  {summary.buckets?.unassignedCount ? `, ${summary.buckets.unassignedCount} unassigned` : ''}
-                </div>
-              </button>
-            </>
-          )}
+                  <div className="stat-card">
+                    <div className="stat-header">
+                      <span className="stat-label">SET GOAL</span>
+                      <span className="stat-icon">Target</span>
+                    </div>
+                    <div className="stat-value">{target.toFixed(2)}</div>
+                    <div className="stat-subtitle">Desired cumulative GPA for {name}</div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="5"
+                      step="0.01"
+                      value={target}
+                      onChange={(event) => setTarget(parseFloat(event.target.value))}
+                      className="gpa-slider"
+                    />
+                    <div className="slider-labels">
+                      <span>0.0</span>
+                      <span>5.0</span>
+                    </div>
+                  </div>
 
-          <div className="stat-card">
-            <div className="stat-header">
-              <span className="stat-label">SET GOAL</span>
-              <span className="stat-icon">Target</span>
-            </div>
-            <div className="stat-value">{targetGPA.toFixed(2)}</div>
-            <div className="stat-subtitle">Desired cumulative GPA</div>
-            <input
-              type="range"
-              min="0"
-              max="5"
-              step="0.01"
-              value={targetGPA}
-              onChange={(event) => setTargetGPA(parseFloat(event.target.value))}
-              className="gpa-slider"
-            />
-            <div className="slider-labels">
-              <span>0.0</span>
-              <span>5.0</span>
-            </div>
+                  <div className={`stat-card ${!requiredPlan.possible ? 'alert' : ''}`}>
+                    <div className="stat-header">
+                      <span className="stat-label">{name} REQUIRED</span>
+                      <span className="stat-icon">Degree {bucket === 'primary' ? '1' : '2'}</span>
+                    </div>
+                    <div className="stat-value">{(requiredPlan.requiredAverageGradePoint || 0).toFixed(2)}</div>
+                    <div className={`stat-subtitle ${!requiredPlan.possible ? 'alert-text' : ''}`}>
+                      {requiredPlan.message}
+                    </div>
+                    <div className="remaining-credits">
+                      Remaining Credits: {requiredPlan.futureCredits}
+                    </div>
+                  </div>
+                </React.Fragment>
+              );
+            })}
           </div>
-
-          {doubleDegree ? (
-            <>
-              <div className={`stat-card ${!primaryRequiredPlan.possible ? 'alert' : ''}`}>
-                <div className="stat-header">
-                  <span className="stat-label">{degreeNames.primary} REQUIRED</span>
-                  <span className="stat-icon">Degree 1</span>
-                </div>
-                <div className="stat-value">{primaryRequiredPlan.requiredAverageGradePoint.toFixed(2)}</div>
-                <div className={`stat-subtitle ${!primaryRequiredPlan.possible ? 'alert-text' : ''}`}>
-                  {primaryRequiredPlan.message}
-                </div>
-                <div className="remaining-credits">
-                  Remaining Credits: {primaryRequiredPlan.futureCredits}
-                </div>
+        ) : (
+          <div className="stats-grid summary-grid">
+            <button
+              className={`stat-card stat-card-button ${selectedGpaBucket === activeSummaryBucket ? 'selected' : ''}`}
+              type="button"
+              onClick={() => setSelectedGpaBucket((current) => current === activeSummaryBucket ? '' : activeSummaryBucket)}
+            >
+              <div className="stat-header">
+                <span className="stat-label">CURRENT GPA</span>
+                <span className="stat-icon">{isGuest ? 'Guest' : '5.0 scale'}</span>
               </div>
+              <div className="stat-value">{currentSummaryGpa.toFixed(2)}</div>
+              <div className="stat-subtitle">Based on {currentSummaryCredits} total completed credits</div>
+            </button>
 
-              <div className={`stat-card ${!secondaryRequiredPlan.possible ? 'alert' : ''}`}>
-                <div className="stat-header">
-                  <span className="stat-label">{degreeNames.secondary} REQUIRED</span>
-                  <span className="stat-icon">Degree 2</span>
-                </div>
-                <div className="stat-value">{secondaryRequiredPlan.requiredAverageGradePoint.toFixed(2)}</div>
-                <div className={`stat-subtitle ${!secondaryRequiredPlan.possible ? 'alert-text' : ''}`}>
-                  {secondaryRequiredPlan.message}
-                </div>
-                <div className="remaining-credits">
-                  Remaining Credits: {secondaryRequiredPlan.futureCredits}
-                </div>
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">SET GOAL</span>
+                <span className="stat-icon">Target</span>
               </div>
-            </>
-          ) : (
-            <div className={`stat-card ${isPlanImpossible ? 'alert' : ''}`}>
+              <div className="stat-value">{targetGPA.toFixed(2)}</div>
+              <div className="stat-subtitle">Desired cumulative GPA</div>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.01"
+                value={targetGPA}
+                onChange={(event) => setTargetGPA(parseFloat(event.target.value))}
+                className="gpa-slider"
+              />
+              <div className="slider-labels">
+                <span>0.0</span>
+                <span>5.0</span>
+              </div>
+            </div>
+
+            <div className={`stat-card ${!summaryRequiredPlan.possible ? 'alert' : ''}`}>
               <div className="stat-header">
                 <span className="stat-label">REQUIRED AVERAGE</span>
                 <span className="stat-icon">Future</span>
               </div>
-              <div className="stat-value">{requiredAverage.toFixed(2)}</div>
-              <div className={`stat-subtitle ${isPlanImpossible ? 'alert-text' : ''}`}>
-                {plan?.message || 'Add planned modules to calculate this.'}
+              <div className="stat-value">{summaryRequiredPlan.requiredAverageGradePoint.toFixed(2)}</div>
+              <div className={`stat-subtitle ${!summaryRequiredPlan.possible ? 'alert-text' : ''}`}>
+                {summaryRequiredPlan.message}
               </div>
               <div className="remaining-credits">
-                Remaining Credits: {remainingCredits}
+                Remaining Credits: {summaryRequiredPlan.futureCredits}
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {selectedGpaMeta && (
           <section className="gpa-detail-panel">
