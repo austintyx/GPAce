@@ -98,6 +98,16 @@ export async function updateAcademicModule(moduleData) {
   return parseResponse(response);
 }
 
+export async function updateAcademicModuleBde(moduleId, isBde) {
+  const response = await fetch(`${ACADEMIC_API_URL}/modules/${moduleId}/bde`, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ isBde })
+  });
+
+  return parseResponse(response);
+}
+
 export async function deleteAcademicModule(moduleId) {
   const response = await fetch(`${ACADEMIC_API_URL}/modules/${moduleId}`, {
     method: "DELETE",

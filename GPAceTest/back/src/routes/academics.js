@@ -17,6 +17,7 @@ router.post('/gpa-buckets/upload', upload.single('mapping'), academicController.
 router.get('/modules', academicController.listModules);
 router.post('/modules', academicController.upsertModule);
 router.delete('/modules', academicController.clearModules);
+router.patch('/modules/:moduleId/bde', academicController.updateModuleBde);
 router.put('/modules/:moduleId', academicController.updateModule);
 router.delete('/modules/:moduleId', academicController.deleteModule);
 router.get('/gpa', academicController.getGpa);

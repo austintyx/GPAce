@@ -3,7 +3,7 @@ const User = require('../models/user');
 const { PDFParse } = require('pdf-parse');
 const { calculateGpa, calculateGpaByBucket, buildGradePlan } = require('../utils/gpa');
 const { parseTranscriptText } = require('../utils/transcriptParser');
-const { parseCurriculumText } = require('../utils/curriculumParser');
+const { parseCurriculumText, normaliseModuleCategory } = require('../utils/curriculumParser');
 const { buildDocumentMap, classifyFromDocument, inferGpaBucket } = require('../utils/gpaBucketClassifier');
 
 function getUserId(req) {
@@ -67,6 +67,15 @@ async function readUploadedText(req, fileLabel) {
   throw new Error(`Only PDF and plain text ${fileLabel} files are supported right now.`);
 }
 
+function resolveModuleCategory(moduleData = {}) {
+  return moduleData.moduleCategory || normaliseModuleCategory(moduleData.type || '');
+}
+
+function resolveIsBde(moduleData = {}) {
+  if (typeof moduleData.isBde === 'boolean') return moduleData.isBde;
+  return resolveModuleCategory(moduleData) === 'BDE';
+}
+
 exports.parseTranscript = async (req, res) => {
   const transcriptText = req.body.transcriptText || req.body.text || '';
   if (!transcriptText.trim()) {
@@ -91,9 +100,11 @@ exports.importTranscript = async (req, res) => {
     for (const moduleData of parsed.modules) {
       const academicYear = moduleData.academicYear || req.body.academicYear || user.academicYear || 'Unknown';
       const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData);
+      const moduleCategory = resolveModuleCategory(moduleData);
+      const isBde = resolveIsBde(moduleData);
       const saved = await Module.findOneAndUpdate(
         { user: user._id, code: moduleData.code, academicYear },
-        { ...moduleData, user: user._id, academicYear, gpaBucket },
+        { ...moduleData, user: user._id, academicYear, gpaBucket, moduleCategory, isBde },
         { new: true, upsert: true, runValidators: true }
       );
       savedModules.push(saved);
@@ -135,9 +146,11 @@ exports.uploadTranscript = async (req, res) => {
     for (const moduleData of parsed.modules) {
       const academicYear = moduleData.academicYear || user.academicYear || 'Unknown';
       const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData);
+      const moduleCategory = resolveModuleCategory(moduleData);
+      const isBde = resolveIsBde(moduleData);
       const saved = await Module.findOneAndUpdate(
         { user: user._id, code: moduleData.code, academicYear },
-        { ...moduleData, user: user._id, academicYear, gpaBucket },
+        { ...moduleData, user: user._id, academicYear, gpaBucket, moduleCategory, isBde },
         { new: true, upsert: true, runValidators: true }
       );
       savedModules.push(saved);
@@ -193,7 +206,13 @@ exports.uploadCurriculum = async (req, res) => {
 
       const saved = await Module.findOneAndUpdate(
         { user: user._id, code: moduleData.code, academicYear: moduleData.academicYear },
-        { ...moduleData, user: user._id, gpaBucket: moduleData.gpaBucket || inferGpaBucket(user, moduleData) },
+        {
+          ...moduleData,
+          user: user._id,
+          gpaBucket: moduleData.gpaBucket || inferGpaBucket(user, moduleData),
+          moduleCategory: resolveModuleCategory(moduleData),
+          isBde: resolveIsBde(moduleData)
+        },
         { new: true, upsert: true, runValidators: true }
       );
       savedModules.push(saved);
@@ -240,7 +259,9 @@ exports.upsertModule = async (req, res) => {
       credits,
       grade = '-',
       status = 'Planned',
-      gpaBucket
+      gpaBucket,
+      moduleCategory,
+      isBde = false
     } = req.body;
 
     if (!code || !name || !credits) {
@@ -249,7 +270,18 @@ exports.upsertModule = async (req, res) => {
 
     const module = await Module.findOneAndUpdate(
       { user: user._id, code: code.toUpperCase(), academicYear },
-      { user: user._id, academicYear, code: code.toUpperCase(), name, credits, grade, status, gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear }) },
+      {
+        user: user._id,
+        academicYear,
+        code: code.toUpperCase(),
+        name,
+        credits,
+        grade,
+        status,
+        moduleCategory: moduleCategory || (isBde ? 'BDE' : 'Core'),
+        isBde,
+        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear })
+      },
       { new: true, upsert: true, runValidators: true }
     );
 
@@ -272,7 +304,9 @@ exports.updateModule = async (req, res) => {
       credits,
       grade = '-',
       status = 'Planned',
-      gpaBucket
+      gpaBucket,
+      moduleCategory,
+      isBde
     } = req.body;
 
     if (!code || !name || !credits) {
@@ -281,7 +315,18 @@ exports.updateModule = async (req, res) => {
 
     const module = await Module.findOneAndUpdate(
       { _id: req.params.moduleId, user: user._id },
-      { academicYear, code: code.toUpperCase(), name, credits, grade, status, gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear }) },
+      {
+        academicYear,
+        code: code.toUpperCase(),
+        name,
+        credits,
+        grade,
+        status,
+        ...(moduleCategory ? { moduleCategory } : {}),
+        ...(typeof isBde === 'boolean' ? { isBde } : {}),
+        ...(typeof isBde === 'boolean' && !moduleCategory ? { moduleCategory: isBde ? 'BDE' : 'Core' } : {}),
+        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear })
+      },
       { new: true, runValidators: true }
     );
 
@@ -293,6 +338,33 @@ exports.updateModule = async (req, res) => {
   } catch (err) {
     console.error('Module update error:', err);
     res.status(500).json({ message: err.message || 'Unable to update module.' });
+  }
+};
+
+exports.updateModuleBde = async (req, res) => {
+  try {
+    const user = await resolveUser(req, res);
+    if (!user) return;
+
+    const { isBde } = req.body;
+    if (typeof isBde !== 'boolean') {
+      return res.status(400).json({ message: 'isBde must be true or false.' });
+    }
+
+    const module = await Module.findOneAndUpdate(
+      { _id: req.params.moduleId, user: user._id },
+      { isBde, moduleCategory: isBde ? 'BDE' : 'Core' },
+      { new: true, runValidators: true }
+    );
+
+    if (!module) {
+      return res.status(404).json({ message: 'Module not found.' });
+    }
+
+    res.json({ module });
+  } catch (err) {
+    console.error('Module BDE update error:', err);
+    res.status(500).json({ message: err.message || 'Unable to update BDE setting.' });
   }
 };
 
