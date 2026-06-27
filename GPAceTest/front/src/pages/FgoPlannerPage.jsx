@@ -43,6 +43,18 @@ function isBdeModule(module) {
   return Boolean(module.isBde || module.moduleCategory === 'BDE');
 }
 
+function moduleMatchesGpaBucket(gpaBucket, bucket) {
+  const normalizedBucket = gpaBucket || 'primary';
+  if (bucket === 'primary') return ['primary', 'shared'].includes(normalizedBucket);
+  if (bucket === 'secondary') return ['secondary', 'shared'].includes(normalizedBucket);
+  return false;
+}
+
+function getFilteredModulesForDegree(modules, selectedDegree, isDoubleDegree) {
+  if (!isDoubleDegree) return modules;
+  return modules.filter((module) => moduleMatchesGpaBucket(module.gpaBucket, selectedDegree));
+}
+
 function buildBestRemovalStates(candidates, capAu) {
   const cap = Math.round(capAu * creditScale);
   const states = Array.from({ length: cap + 1 }, () => null);
@@ -77,8 +89,9 @@ function buildBestRemovalStates(candidates, capAu) {
     .filter(Boolean);
 }
 
-function optimiseFgo(modules) {
-  const gradedModules = modules.filter(isCompletedGraded);
+function optimiseFgo(modules, isDoubleDegree, selectedDegree) {
+  const visibleModules = getFilteredModulesForDegree(modules, selectedDegree, isDoubleDegree);
+  const gradedModules = visibleModules.filter(isCompletedGraded);
   const totalCredits = sumCredits(gradedModules);
   const totalQualityPoints = gradedModules.reduce((sum, module) => (
     sum + Number(module.credits || 0) * gradePointFor(module)
@@ -142,6 +155,10 @@ function FgoPlannerPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [savingModuleId, setSavingModuleId] = useState('');
+  const [user, setUser] = useState(null);
+  const [isDoubleDegree, setIsDoubleDegree] = useState(false);
+  const [degreeNames, setDegreeNames] = useState({ primary: 'Degree 1', secondary: 'Degree 2' });
+  const [selectedDegree, setSelectedDegree] = useState('primary');
 
   const handleLogout = () => {
     clearSession();
@@ -155,12 +172,30 @@ function FgoPlannerPage() {
 
     try {
       if (isGuest) {
+        setUser(null);
+        setIsDoubleDegree(false);
+        setDegreeNames({ primary: 'Degree 1', secondary: 'Degree 2' });
+        setSelectedDegree('primary');
         setModules(JSON.parse(localStorage.getItem('guest_modules') || '[]'));
         return;
       }
 
       const data = await fetchAcademicModules();
       setModules(data.modules || []);
+
+      if (data.user) {
+        const doubleDegreeFlag = Boolean(data.user.isDoubleDegree);
+        setUser(data.user);
+        setIsDoubleDegree(doubleDegreeFlag);
+        setDegreeNames({
+          primary: data.user.primaryDegreeName || data.user.course || 'Degree 1',
+          secondary: data.user.secondaryDegreeName || 'Degree 2'
+        });
+
+        if (!doubleDegreeFlag) {
+          setSelectedDegree('primary');
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -172,13 +207,20 @@ function FgoPlannerPage() {
     loadModules();
   }, [loadModules]);
 
-  const plan = useMemo(() => optimiseFgo(modules), [modules]);
+  const filteredModules = useMemo(
+    () => getFilteredModulesForDegree(modules, selectedDegree, isDoubleDegree),
+    [modules, selectedDegree, isDoubleDegree]
+  );
+  const plan = useMemo(
+    () => optimiseFgo(modules, isDoubleDegree, selectedDegree),
+    [modules, isDoubleDegree, selectedDegree]
+  );
   const selectedKeys = useMemo(() => new Set(plan.selectedModules.map(moduleKey)), [plan.selectedModules]);
   const completedGradedModules = useMemo(() => (
-    modules
+    filteredModules
       .filter(isCompletedGraded)
       .sort((a, b) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true }))
-  ), [modules]);
+  ), [filteredModules]);
 
   const updateModuleBde = async (module, isBde) => {
     const updatedModule = { ...module, isBde };
@@ -254,11 +296,30 @@ function FgoPlannerPage() {
           </div>
         )}
 
+        {isDoubleDegree && (
+          <div className="degree-toggle-row">
+            <button
+              type="button"
+              className={`btn-secondary ${selectedDegree === 'primary' ? 'selected' : ''}`}
+              onClick={() => setSelectedDegree('primary')}
+            >
+              {degreeNames.primary}
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary ${selectedDegree === 'secondary' ? 'selected' : ''}`}
+              onClick={() => setSelectedDegree('secondary')}
+            >
+              {degreeNames.secondary}
+            </button>
+          </div>
+        )}
+
         <div className="stats-grid">
           <div className="stat-card">
             <div className="stat-header">
-              <span className="stat-label">CURRENT GPA</span>
-              <span className="stat-icon">Before FGO</span>
+              <span className="stat-label">{isDoubleDegree ? `${degreeNames[selectedDegree]} GPA` : 'CURRENT GPA'}</span>
+              <span className="stat-icon">{isDoubleDegree ? `Degree ${selectedDegree === 'primary' ? '1' : '2'}` : 'Before FGO'}</span>
             </div>
             <div className="stat-value">{plan.currentGpa.toFixed(2)}</div>
             <div className="stat-subtitle">From {plan.totalCredits} graded completed AU</div>
@@ -286,7 +347,7 @@ function FgoPlannerPage() {
 
         <section className="courses-section fgo-recommendation">
           <div className="section-header">
-            <h2>Recommended FGO Modules</h2>
+            <h2>Recommended FGO Modules{isDoubleDegree ? ` for ${degreeNames[selectedDegree]}` : ''}</h2>
             <span className="fgo-pill">{sumCredits(plan.selectedModules)} AU selected</span>
           </div>
 
