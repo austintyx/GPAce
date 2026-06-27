@@ -70,6 +70,8 @@ The frontend runs at:
 http://localhost:3000
 ```
 
+The frontend has also been deployed at: `https://ntugpace.vercel.app`
+
 ## Typical Development Flow
 
 1. Start MongoDB.
