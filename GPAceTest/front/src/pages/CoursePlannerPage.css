@@ -1,0 +1,280 @@
+.planner-main {
+  max-width: none;
+}
+
+.planner-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.planner-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.planner-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.semester-column {
+  display: grid;
+  gap: 18px;
+}
+
+.course-drawer {
+  position: sticky;
+  top: 24px;
+  background: white;
+  border: 1px solid #e5e5e7;
+  border-radius: 12px;
+  padding: 18px;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.course-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.course-drawer-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.course-drawer-header span {
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 9px;
+}
+
+.course-drawer-list {
+  display: grid;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.unplaced-drop {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 12px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.unplaced-drop.drop-active {
+  border-color: #6366f1;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.unplaced-count {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 2px;
+}
+
+.semester-board {
+  background: white;
+  border: 1px solid #e5e5e7;
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.semester-board.drop-active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.semester-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.semester-header h2 {
+  cursor: text;
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.semester-header p {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0;
+}
+
+.semester-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.semester-actions span {
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.semester-actions button {
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.semester-actions button:last-child {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.semester-name-input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  padding: 8px 10px;
+  width: min(420px, 100%);
+}
+
+.semester-name-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.semester-module-list {
+  display: grid;
+  gap: 10px;
+}
+
+.planner-module-card {
+  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  background: white;
+  cursor: grab;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px;
+}
+
+.planner-module-card:active {
+  cursor: grabbing;
+}
+
+.planner-module-card.completed {
+  background: #f8fffb;
+}
+
+.planner-module-card.compact {
+  grid-template-columns: 1fr;
+}
+
+.planner-module-card strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+
+.planner-module-card span {
+  color: #374151;
+  font-size: 13px;
+}
+
+.planner-module-meta {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planner-status {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.planner-status.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.planner-status.planned {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.planner-status.in-progress {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.empty-semester,
+.empty-drawer {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #9ca3af;
+  font-weight: 700;
+  padding: 18px;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .planner-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .course-drawer {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .planner-header,
+  .semester-header {
+    flex-direction: column;
+  }
+
+  .planner-actions {
+    width: 100%;
+  }
+
+  .planner-actions button {
+    flex: 1;
+  }
+}
