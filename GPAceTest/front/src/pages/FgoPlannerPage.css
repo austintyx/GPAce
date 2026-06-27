@@ -1,0 +1,93 @@
+.fgo-budget-lines {
+  display: grid;
+  gap: 8px;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.fgo-budget-lines strong {
+  color: #111827;
+}
+
+.fgo-recommendation {
+  margin-bottom: 24px;
+}
+
+.section-subtitle {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 6px 0 0;
+}
+
+.fgo-pill,
+.fgo-selected-badge {
+  background: #eef2ff;
+  border-radius: 999px;
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.fgo-selected-badge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.fgo-muted {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fgo-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.fgo-module-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.fgo-module-card strong,
+.fgo-module-card span {
+  display: block;
+}
+
+.fgo-module-card strong {
+  margin-bottom: 4px;
+}
+
+.fgo-module-card span {
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.fgo-module-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fgo-module-meta span {
+  background: #f3f4f6;
+  border-radius: 999px;
+  color: #374151;
+  font-weight: 700;
+  padding: 5px 9px;
+}
+
+.fgo-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #6b7280;
+  font-weight: 700;
+  padding: 18px;
+  text-align: center;
+}

@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import CoursePlannerPage from './pages/CoursePlannerPage';
+import FgoPlannerPage from './pages/FgoPlannerPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/courses" element={<CoursePlannerPage />} />
+          <Route path="/fgo" element={<FgoPlannerPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Routes>
     </Router>

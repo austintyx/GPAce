@@ -7,6 +7,12 @@ const moduleSchema = new mongoose.Schema({
   name: { type: String, required: true },
   credits: { type: Number, required: true },
   type: { type: String },
+  moduleCategory: {
+    type: String,
+    enum: ['Core', 'MPE', 'ICC', 'BDE', 'Uncategorised'],
+    default: 'Uncategorised'
+  },
+  isBde: { type: Boolean, default: false },
   prerequisite: { type: String },
   gpaBucket: {
     type: String,

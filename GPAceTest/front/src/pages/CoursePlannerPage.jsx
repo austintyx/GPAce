@@ -275,6 +275,9 @@ function CoursePlannerPage() {
           <a href="/courses" className="nav-item active">
             <span className="nav-icon">Course Planner</span>
           </a>
+          <a href="/fgo" className="nav-item">
+            <span className="nav-icon">FGO Planner</span>
+          </a>
         </nav>
         <div className="user-profile">
           <div className="profile-avatar">{initials}</div>

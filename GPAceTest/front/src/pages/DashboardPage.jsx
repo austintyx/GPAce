@@ -21,7 +21,8 @@ const emptyModule = {
   credits: 3,
   grade: '-',
   status: 'Planned',
-  gpaBucket: 'primary'
+  gpaBucket: 'primary',
+  isBde: false
 };
 
 const gradeOptions = ['-', 'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'D+', 'D', 'F', 'P', 'U', 'PASS', 'EX'];
@@ -761,6 +762,22 @@ function DashboardPage() {
     );
   };
 
+  const renderBdeCheckbox = (course) => {
+    const checked = Boolean(course.isBde || course.moduleCategory === 'BDE');
+
+    return (
+      <label className="table-checkbox">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={editingModuleId === (course._id || course.code)}
+          onChange={(event) => handleModuleFieldChange(course, 'isBde', event.target.checked)}
+        />
+        <span>BDE</span>
+      </label>
+    );
+  };
+
   const handleRemoveModule = async (course) => {
     const courseKey = course._id || `${course.code}-${course.academicYear}`;
     const nextCourses = courses.filter((item) =>
@@ -867,6 +884,9 @@ function DashboardPage() {
           </a>
           <a href="/courses" className="nav-item">
             <span className="nav-icon">Course Planner</span>
+          </a>
+          <a href="/fgo" className="nav-item">
+            <span className="nav-icon">FGO Planner</span>
           </a>
         </nav>
         <div className="user-profile">
@@ -1029,6 +1049,7 @@ function DashboardPage() {
                     <th>Code</th>
                     <th>Course Name</th>
                     <th>Credits</th>
+                    <th>BDE</th>
                     <th>Grade</th>
                     <th>Status</th>
                     {doubleDegree && <th>GPA Category</th>}
@@ -1040,6 +1061,7 @@ function DashboardPage() {
                       <td>{renderInlineTextInput(course, 'code', 'code-input')}</td>
                       <td>{renderInlineTextInput(course, 'name', 'name-input')}</td>
                       <td>{renderInlineTextInput(course, 'credits', 'credits-input')}</td>
+                      <td>{renderBdeCheckbox(course)}</td>
                       <td>{renderInlineSelect(course, 'grade', gradeOptions, 'grade-select')}</td>
                       <td>{renderInlineSelect(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
                       {doubleDegree && (
@@ -1049,7 +1071,7 @@ function DashboardPage() {
                   ))}
                   {selectedGpaCourses.length === 0 && (
                     <tr>
-                      <td colSpan={doubleDegree ? '6' : '5'} className="empty-table">
+                      <td colSpan={doubleDegree ? '7' : '6'} className="empty-table">
                         No completed modules are assigned to this GPA yet.
                       </td>
                     </tr>
@@ -1115,6 +1137,7 @@ function DashboardPage() {
                     <th>Code</th>
                     <th>Course Name</th>
                     <th>Credits</th>
+                    <th>BDE</th>
                     <th>Grade</th>
                     <th>Status</th>
                     {doubleDegree && <th>GPA</th>}
@@ -1127,6 +1150,7 @@ function DashboardPage() {
                       <td>{renderEditableTextCell(course, 'code', 'code-input')}</td>
                       <td>{renderEditableTextCell(course, 'name', 'name-input')}</td>
                       <td>{renderEditableTextCell(course, 'credits', 'credits-input')}</td>
+                      <td>{renderBdeCheckbox(course)}</td>
                       <td>{renderEditableSelectCell(course, 'grade', gradeOptions, 'grade-select')}</td>
                       <td>{renderEditableSelectCell(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
                       {doubleDegree && (
@@ -1146,7 +1170,7 @@ function DashboardPage() {
                   ))}
                   {sortedCourses.length === 0 && (
                     <tr>
-                      <td colSpan={doubleDegree ? '7' : '6'} className="empty-table">No modules yet.</td>
+                      <td colSpan={doubleDegree ? '8' : '7'} className="empty-table">No modules yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1218,6 +1242,14 @@ function DashboardPage() {
               <input className="form-input" placeholder="Code" value={newModule.code} onChange={(event) => setNewModule({ ...newModule, code: event.target.value })} />
               <input className="form-input" placeholder="Module name" value={newModule.name} onChange={(event) => setNewModule({ ...newModule, name: event.target.value })} />
               <input className="form-input" type="number" min="0.5" step="0.5" placeholder="Credits" value={newModule.credits} onChange={(event) => setNewModule({ ...newModule, credits: Number(event.target.value) })} />
+              <label className="form-checkbox">
+                <input
+                  type="checkbox"
+                  checked={newModule.isBde}
+                  onChange={(event) => setNewModule({ ...newModule, isBde: event.target.checked })}
+                />
+                <span>BDE module</span>
+              </label>
               {doubleDegree && (
                 <select className="form-input" value={newModule.gpaBucket} onChange={(event) => setNewModule({ ...newModule, gpaBucket: event.target.value })}>
                   {gpaBucketOptions.map((bucket) => (

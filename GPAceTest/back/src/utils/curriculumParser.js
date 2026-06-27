@@ -76,6 +76,15 @@ function makeName(code, type) {
   return code;
 }
 
+function normaliseModuleCategory(type) {
+  const value = clean(type).toUpperCase();
+  if (value.includes('BDE')) return 'BDE';
+  if (value.includes('ICC') || value.includes('CC')) return 'ICC';
+  if (value.includes('MPE') || value.includes('MAJOR PRESCRIBED')) return 'MPE';
+  if (value.includes('CORE') || value.includes('GER') || value.includes('MH') || value.includes('SC') || value.includes('AB') || value.includes('AD')) return 'Core';
+  return 'Uncategorised';
+}
+
 function parseCurriculumText(text) {
   const lines = String(text || '')
     .split(/\r?\n/)
@@ -134,6 +143,8 @@ function parseCurriculumText(text) {
         status: 'Planned',
         academicYear,
         type: row.type,
+        moduleCategory: normaliseModuleCategory(row.type),
+        isBde: normaliseModuleCategory(row.type) === 'BDE',
         prerequisite: row.prerequisite
       };
     });
@@ -145,4 +156,4 @@ function parseCurriculumText(text) {
   };
 }
 
-module.exports = { parseCurriculumText };
+module.exports = { parseCurriculumText, normaliseModuleCategory };
