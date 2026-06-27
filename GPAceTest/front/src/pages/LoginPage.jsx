@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSignup } from "../hooks/useSignup";
+import { AUTH_API_URL } from "../config/api";
 import "../pages/LoginPage.css";
 
 export default function LoginPage({ onAuth } = {}) {
@@ -18,6 +20,10 @@ export default function LoginPage({ onAuth } = {}) {
     const [confirm, setConfirm] = useState("");
     const [school, setSchool] = useState("");
     const [course, setCourse] = useState("");
+    const [isDoubleDegree, setIsDoubleDegree] = useState(false);
+    const [secondaryDegreeName, setSecondaryDegreeName] = useState("");
+
+    const { handleSignup: signup, loading: signupLoading, error: signupError, setError: setSignupError } = useSignup();
 
     // List of schools
     const schools = [
@@ -27,22 +33,25 @@ export default function LoginPage({ onAuth } = {}) {
         "Singapore University of Technology and Design (SUTD)",
         "Singapore Institute of Technology (SIT)",
         "Singapore University of Social Sciences (SUSS)",
-        "Sigapore Institute of Management (SIM)",
+        "Singapore Institute of Management (SIM)",
         "Other"
     ];
 
     const resetForm = () => {
         setSchool("");
-        setCourse("");
         setEmail("");
         setPassword("");
         setName("");
         setConfirm("");
+        setCourse("");
+        setIsDoubleDegree(false);
+        setSecondaryDegreeName("");
         setRemember(false);
         setError("");
+        setSignupError("");
     };
 
-    const validEmail = (e) => /\S+@\S+\.\S+/.test(e);
+    const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
     const fakeAuth = (result, delay = 700) =>
         new Promise((resolve) => setTimeout(() => resolve(result), delay));
@@ -52,9 +61,12 @@ export default function LoginPage({ onAuth } = {}) {
         setError("");
         try {
             const token = "guest-token-" + Math.random().toString(36).slice(2, 10);
-            await fakeAuth({ token, user: { name: "Guest" } });
+            const guestUser = { name: "Guest" };
+            await fakeAuth({ token, user: guestUser });
             localStorage.setItem("auth_token", token);
-            if (onAuth) onAuth({ token, user: { name: "Guest" }, guest: true });
+            localStorage.setItem("auth_user", JSON.stringify(guestUser));
+            localStorage.setItem("auth_guest", "true");
+            if (onAuth) onAuth({ token, user: guestUser, guest: true });
             else console.log("Authenticated as guest:", token);
             navigate("/dashboard");
         } catch (e) {
@@ -72,63 +84,46 @@ export default function LoginPage({ onAuth } = {}) {
 
         setLoading(true);
         try {
-            const response = await fetch("http://localhost:4000/api/auth/login", {
+            const response = await fetch(`${AUTH_API_URL}/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password })
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.json().catch(() => ({}));
                 return setError(errorData.message || "Login failed.");
             }
 
             const { token, user } = await response.json();
             localStorage.setItem("auth_token", token);
+            localStorage.setItem("auth_user", JSON.stringify(user));
+            localStorage.setItem("auth_guest", "false");
             if (onAuth) onAuth({ token, user, guest: false });
             else console.log("Logged in:", { token, user });
             navigate("/dashboard");
         } catch (err) {
             console.error("Login error:", err);
-            setError("Login failed. Please try again.");
+            setError("Login failed. Check that the backend is running on port 4000.");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSignup = async (e) => {
+    const onSignupSubmit = (e) => {
         e.preventDefault();
-        setError("");
-        if (!name.trim()) return setError("Enter your name.");
-        if (!school) return setError("Select your school.");
-        if (!validEmail(email)) return setError("Enter a valid email address.");
-        if (password.length < 6) return setError("Password must be at least 6 characters.");
-        if (password !== confirm) return setError("Passwords do not match.");
-
-        setLoading(true);
-        try {
-            const response = await fetch("http://localhost:4000/api/auth/signup", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, school, course, email,password })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                return setError(errorData.message || "Signup failed.");
-            }
-
-            const { token, user } = await response.json();
-            localStorage.setItem("auth_token", token);
-            if (onAuth) onAuth({ token, user, guest: false });
-            else console.log("Signed up:", { token, user });
-            navigate("/dashboard");
-        } catch (err) {
-            console.error("Signup error:", err);
-            setError("Signup failed. Please try again.");
-        } finally {
-            setLoading(false);
-        }
+        signup({
+            name,
+            school,
+            course,
+            email,
+            password,
+            confirm,
+            isDoubleDegree,
+            primaryDegreeName: course,
+            secondaryDegreeName,
+            onAuth
+        });
     };
 
     const ChoiceCard = () => (
@@ -214,7 +209,7 @@ export default function LoginPage({ onAuth } = {}) {
                 <div className="login-card">
                     <button className="login-back" onClick={() => { setMode("choice"); resetForm(); }}>&larr; Back</button>
                     <h2 className="login-title">Sign up</h2>
-                    <form onSubmit={handleSignup} className="login-form">
+                    <form onSubmit={onSignupSubmit} className="login-form">
                         <label className="login-label">
                             Full name
                             <input className="login-input" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -244,6 +239,26 @@ export default function LoginPage({ onAuth } = {}) {
                                 required
                             />
                         </label>
+                        <label className="login-checkbox">
+                            <input
+                                type="checkbox"
+                                checked={isDoubleDegree}
+                                onChange={(e) => setIsDoubleDegree(e.target.checked)}
+                            />
+                            <span>I am studying a double degree</span>
+                        </label>
+                        {isDoubleDegree && (
+                            <label className="login-label">
+                                Second degree
+                                <input
+                                    className="login-input"
+                                    value={secondaryDegreeName}
+                                    onChange={(e) => setSecondaryDegreeName(e.target.value)}
+                                    placeholder="Example: Computer Science"
+                                    required
+                                />
+                            </label>
+                        )}
                         <label className="login-label">
                             Email
                             <input
@@ -275,8 +290,8 @@ export default function LoginPage({ onAuth } = {}) {
                             />
                         </label>
                         <div className="login-row">
-                            <button className="btn-primary" type="submit" disabled={loading}>
-                                {loading ? "Creating..." : "Create account"}
+                            <button className="btn-primary" type="submit" disabled={signupLoading}>
+                                {signupLoading ? "Creating..." : "Create account"}
                             </button>
                             <button
                                 type="button"
@@ -284,17 +299,17 @@ export default function LoginPage({ onAuth } = {}) {
                                 onClick={() => {
                                     setMode("login");
                                 }}
-                                disabled={loading}
+                                disabled={signupLoading}
                             >
                                 Already have an account?
                             </button>
                         </div>
                         <div className="login-guest-btn">
-                            <button className="btn-ghost" type="button" onClick={handleGuest} disabled={loading}>
+                            <button className="btn-ghost" type="button" onClick={handleGuest} disabled={signupLoading}>
                                 Continue as Guest
                             </button>
                         </div>
-                        {error && <div className="login-error">{error}</div>}
+                        {signupError && <div className="login-error">{signupError}</div>}
                     </form>
                 </div>
             )}
