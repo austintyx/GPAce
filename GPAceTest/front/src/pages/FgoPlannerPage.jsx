@@ -155,7 +155,7 @@ function FgoPlannerPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [savingModuleId, setSavingModuleId] = useState('');
-  const [user, setUser] = useState(null);
+  const [, setUser] = useState(null);
   const [isDoubleDegree, setIsDoubleDegree] = useState(false);
   const [degreeNames, setDegreeNames] = useState({ primary: 'Degree 1', secondary: 'Degree 2' });
   const [selectedDegree, setSelectedDegree] = useState('primary');

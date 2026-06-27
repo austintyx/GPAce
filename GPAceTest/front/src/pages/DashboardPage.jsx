@@ -865,14 +865,6 @@ function DashboardPage() {
     [courses, secondaryTargetGPA]
   );
 
-  const summaryRequiredPlan = doubleDegree
-    ? (activeSummaryBucket === 'secondary' ? secondaryRequiredPlan : primaryRequiredPlan)
-    : {
-        requiredAverageGradePoint: Number(requiredAverage || 0),
-        futureCredits: remainingCredits,
-        possible: !isPlanImpossible,
-        message: plan?.message || 'Add planned modules to calculate this.'
-      };
   const selectedGpaMeta = {
     overall: { title: 'Current GPA', label: 'Overall' },
     primary: { title: `${degreeNames.primary} GPA`, label: 'Degree 1' },
@@ -884,6 +876,14 @@ function DashboardPage() {
     : [];
   const requiredAverage = Number(plan?.requiredAverageGradePoint || 0);
   const isPlanImpossible = plan && !plan.possible;
+  const summaryRequiredPlan = doubleDegree
+    ? (activeSummaryBucket === 'secondary' ? secondaryRequiredPlan : primaryRequiredPlan)
+    : {
+        requiredAverageGradePoint: requiredAverage,
+        futureCredits: remainingCredits,
+        possible: !isPlanImpossible,
+        message: plan?.message || 'Add planned modules to calculate this.'
+      };
   const gradePlanPermutations = useMemo(
     () => generateGradePlanPermutations(courses, gradePlanBucket, targetGPA),
     [courses, gradePlanBucket, targetGPA]
