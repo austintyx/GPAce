@@ -1,11 +1,19 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const moduleSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   academicYear: { type: String, required: true },  
-  code: { type: String, required: true, unique: true },
+  code: { type: String, required: true },
   name: { type: String, required: true },
   credits: { type: Number, required: true },
-  grade: { type: String,enum: ['A+','A','A-','B+','B','B-','C+','C','D+','D','F','P','U','-'],
+  type: { type: String },
+  prerequisite: { type: String },
+  gpaBucket: {
+    type: String,
+    enum: ['primary', 'secondary', 'shared', 'excluded', 'unassigned'],
+    default: 'primary'
+  },
+  grade: { type: String,enum: ['A+','A','A-','B+','B','B-','C+','C','D+','D','F','P','U','-','EX','PASS'],
     default: '-'
     },
   status: { type: String, enum: ['Completed', 'In Progress', 'Planned'],
@@ -13,6 +21,8 @@ const moduleSchema = new mongoose.Schema({
   },
 });
 
+moduleSchema.index({ user: 1, code: 1, academicYear: 1 }, { unique: true });
+
 const Module = mongoose.model('Module', moduleSchema);
 
-export default Module;
+module.exports = Module;
