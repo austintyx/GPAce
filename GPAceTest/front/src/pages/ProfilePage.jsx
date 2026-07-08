@@ -53,17 +53,31 @@ function ProfilePage() {
 
   return (
     <main className="profile-page">
-      <section className="profile-panel">
-        <div className="profile-topbar">
-          <button className="profile-back" type="button" onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </button>
-          <button className="profile-logout" type="button" onClick={handleLogout}>
+      <div className="profile-page-shell">
+        <header className="profile-topnav">
+          <div className="profile-brand">
+            <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="profile-brand-icon" />
+            <span>GPAce</span>
+          </div>
+          <nav className="profile-nav-links">
+            <a href="/dashboard" className="profile-nav-link">Dashboard</a>
+            <a href="/courses" className="profile-nav-link">Course Planner</a>
+            <a href="/fgo" className="profile-nav-link">FGO Planner</a>
+            <a href="/profile" className="profile-nav-link active">Profile</a>
+          </nav>
+          <button className="profile-page-logout" type="button" onClick={handleLogout}>
             Log out
           </button>
-        </div>
+        </header>
 
-        <div className="profile-header">
+        <section className="profile-panel">
+          <div className="profile-topbar">
+            <button className="profile-back" type="button" onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </button>
+          </div>
+
+          <div className="profile-header">
           <div className="profile-large-avatar">{initials}</div>
           <div>
             <h1>{displayName}</h1>
@@ -110,38 +124,39 @@ function ProfilePage() {
           </div>
         </div>
 
-        {!isGuest && (
-          <form className="profile-form" onSubmit={handleSaveDegreeSettings}>
-            <h2>GPA Settings</h2>
-            {(message || error) && (
-              <div className={error ? 'profile-notice error' : 'profile-notice success'}>
-                {error || message}
-              </div>
-            )}
-            <label className="profile-checkbox">
-              <input
-                type="checkbox"
-                checked={isDoubleDegree}
-                onChange={(event) => setIsDoubleDegree(event.target.checked)}
-              />
-              <span>I am studying a double degree</span>
-            </label>
-            <label className="profile-field">
-              Degree 1 GPA name
-              <input value={primaryDegreeName} onChange={(event) => setPrimaryDegreeName(event.target.value)} />
-            </label>
-            {isDoubleDegree && (
-              <label className="profile-field">
-                Degree 2 GPA name
-                <input value={secondaryDegreeName} onChange={(event) => setSecondaryDegreeName(event.target.value)} />
+          {!isGuest && (
+            <form className="profile-form" onSubmit={handleSaveDegreeSettings}>
+              <h2>GPA Settings</h2>
+              {(message || error) && (
+                <div className={error ? 'profile-notice error' : 'profile-notice success'}>
+                  {error || message}
+                </div>
+              )}
+              <label className="profile-checkbox">
+                <input
+                  type="checkbox"
+                  checked={isDoubleDegree}
+                  onChange={(event) => setIsDoubleDegree(event.target.checked)}
+                />
+                <span>I am studying a double degree</span>
               </label>
-            )}
-            <button className="profile-save" type="submit" disabled={saving}>
-              {saving ? 'Saving...' : 'Save GPA Settings'}
-            </button>
-          </form>
-        )}
-      </section>
+              <label className="profile-field">
+                Degree 1 GPA name
+                <input value={primaryDegreeName} onChange={(event) => setPrimaryDegreeName(event.target.value)} />
+              </label>
+              {isDoubleDegree && (
+                <label className="profile-field">
+                  Degree 2 GPA name
+                  <input value={secondaryDegreeName} onChange={(event) => setSecondaryDegreeName(event.target.value)} />
+                </label>
+              )}
+              <button className="profile-save" type="submit" disabled={saving}>
+                {saving ? 'Saving...' : 'Save GPA Settings'}
+              </button>
+            </form>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
