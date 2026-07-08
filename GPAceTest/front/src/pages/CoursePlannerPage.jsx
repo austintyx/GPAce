@@ -263,9 +263,9 @@ function CoursePlannerPage() {
 
   return (
     <div className="dashboard-container">
-      <aside className="sidebar">
+      <header className="sidebar">
         <div className="logo">
-          <div className="logo-icon">GP</div>
+          <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="logo-icon" />
           <h2>GPAce</h2>
         </div>
         <nav className="nav-menu">
@@ -289,7 +289,7 @@ function CoursePlannerPage() {
         <button className="logout-button" type="button" onClick={handleLogout}>
           Log out
         </button>
-      </aside>
+      </header>
 
       <main className="main-content planner-main">
         <header className="dashboard-header planner-header">

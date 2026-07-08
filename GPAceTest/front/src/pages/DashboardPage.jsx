@@ -891,7 +891,7 @@ function DashboardPage() {
 
   return (
     <div className="dashboard-container">
-      <aside className="sidebar">
+      <header className="sidebar">
         <div className="logo">
           <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="logo-icon" />
           <h2>GPAce</h2>
@@ -917,7 +917,7 @@ function DashboardPage() {
         <button className="logout-button" type="button" onClick={handleLogout}>
           Log out
         </button>
-      </aside>
+      </header>
 
       <main className="main-content">
         <header className="dashboard-header">
