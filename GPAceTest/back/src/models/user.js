@@ -9,8 +9,7 @@ const userSchema = new mongoose.Schema({
   secondaryDegreeName: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  academicYear: { type: String },
-  modules: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Module' }],
+  academicYear: { type: String }
 });
 
 module.exports = mongoose.model('User', userSchema);

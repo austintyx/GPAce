@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import '../pages/DashboardPage.css';
+import Sidebar from '../components/Sidebar';
 import {
   addAcademicModule,
   buildGradePlan,
@@ -12,7 +13,7 @@ import {
   uploadGpaMapping,
   uploadTranscript
 } from '../services/academicApi';
-import { clearSession, getDisplayName, getInitials, getStoredUser, isGuestSession } from '../services/session';
+import { getStoredUser, isGuestSession } from '../services/session';
 
 const emptyModule = {
   academicYear: '2025/2026',
@@ -340,8 +341,6 @@ function calculateLocalSummaryBase(modules) {
 }
 
 function DashboardPage() {
-  const displayName = getDisplayName();
-  const initials = getInitials(displayName);
   const [user, setUser] = useState(getStoredUser);
   const [targetGPA, setTargetGPA] = useState(3.5);
   const [primaryTargetGPA, setPrimaryTargetGPA] = useState(3.5);
@@ -369,11 +368,6 @@ function DashboardPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isGuest] = useState(isGuestSession);
-
-  const handleLogout = () => {
-    clearSession();
-    window.location.href = '/login';
-  };
 
   const loadDashboard = useCallback(async () => {
     if (isGuest) {
@@ -891,33 +885,7 @@ function DashboardPage() {
 
   return (
     <div className="dashboard-container">
-      <header className="sidebar">
-        <div className="logo">
-          <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="logo-icon" />
-          <h2>GPAce</h2>
-        </div>
-        <nav className="nav-menu">
-          <a href="/dashboard" className="nav-item active">
-            <span className="nav-icon">Dashboard</span>
-          </a>
-          <a href="/courses" className="nav-item">
-            <span className="nav-icon">Course Planner</span>
-          </a>
-          <a href="/fgo" className="nav-item">
-            <span className="nav-icon">FGO Planner</span>
-          </a>
-        </nav>
-        <div className="user-profile">
-          <div className="profile-avatar">{initials}</div>
-          <div className="profile-info">
-            <div className="profile-name">{displayName}</div>
-            <a className="profile-link" href="/profile">View Profile</a>
-          </div>
-        </div>
-        <button className="logout-button" type="button" onClick={handleLogout}>
-          Log out
-        </button>
-      </header>
+      <Sidebar />
 
       <main className="main-content">
         <header className="dashboard-header">
