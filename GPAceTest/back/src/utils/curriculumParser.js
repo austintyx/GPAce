@@ -1,15 +1,12 @@
-const SEMESTER_LABELS = [
-  'YEAR 1 SEMESTER 1',
-  'YEAR 1 SEMESTER 2',
-  'YEAR 1 SPECIAL SEMESTER',
-  'YEAR 2 SEMESTER 1',
-  'YEAR 2 SEMESTER 2',
-  'YEAR 3 SEMESTER 1',
-  'YEAR 3 SEMESTER 2',
-  'YEAR 4 SEMESTER 1',
-  'YEAR 4 SEMESTER 2'
-];
-
+// Curriculum structure documents vary quite a bit between degrees/schools:
+// some list "Course Code / Course Title / Type / AU / Pre-requisite" (5
+// columns, title included), others list "Course Code / Type / AU /
+// Pre-requisite" (4 columns, no title at all, relying on the reader already
+// knowing the course names). Some use "Remarks" instead of "Pre-requisite"
+// for reference tables (e.g. an "MPE Structure" appendix). The header match
+// and row parser below are written to accept either shape rather than one
+// hardcoded format, and course titles are read directly from the document
+// when present instead of relying solely on the fallback lookup table below.
 const TITLE_BY_CODE = {
   AB0602: 'Communication Management Strategies',
   AB1003: 'Professional Attachment',
@@ -70,7 +67,13 @@ function makePlaceholderCode(code, type, index) {
   return `${code.toUpperCase()}-${label}-${index}`;
 }
 
-function makeName(code, type) {
+// Prefers the title as printed in the document itself (works for any
+// degree's course list), falling back to the small known-course lookup
+// table, then to a generic label for placeholder/elective slots, and
+// finally to the bare code if nothing else is available.
+function makeName(code, capturedTitle, type) {
+  const title = clean(capturedTitle);
+  if (title) return title;
   if (TITLE_BY_CODE[code]) return TITLE_BY_CODE[code];
   if (/x/i.test(code)) return `${clean(type || 'Elective')} Elective`;
   return code;
@@ -85,6 +88,68 @@ function normaliseModuleCategory(type) {
   return 'Uncategorised';
 }
 
+// Matches a real semester/term header line, e.g. "YEAR 1 SEMESTER 1",
+// "YEAR 1 SPECIAL SEMESTER", "YEAR 2 SPECIAL TERM". Used both to label each
+// block of courses with the semester actually printed in the document
+// (rather than assuming a fixed 9-slot sequence every curriculum follows),
+// and to recognise where a genuine semester's course table starts so that
+// reference/appendix tables further down the document (an "MPE Structure"
+// list, a supplementary course listing, etc.) aren't mistaken for one.
+const SEMESTER_HEADER_PATTERN = /^YEAR\s+\d+\s+(?:SEMESTER\s+\d+|SPECIAL\s+SEMESTER|SPECIAL\s+TERM)$/i;
+
+// Accepts the table header with or without a "Course Title" column, and
+// with either "Pre-requisite" or "Remarks" as the last column label.
+const TABLE_HEADER_PATTERN = /^Course\s*Code(?:\s+Course\s*Title)?\s+Type\s+AU\s+(?:Pre-?requisite|Remarks)$/i;
+
+// What a "Type" value actually looks like across these documents: a short
+// known bare word (Core, Elective, ...), or a hyphenated code (C-Core,
+// F-Core, MPE-1, BC-PE1, ...), or letters directly followed by digits
+// (MPE1). Deliberately NOT "any non-space token" — titles can end in a bare
+// number themselves (e.g. "BA/CS Integration 1"), and without this
+// constraint that trailing number gets mistaken for the AU column, cutting
+// the title short and shifting every field after it by one token.
+const TYPE_TOKEN = '(?:core|elective|compulsory|common|prescribed|ger|gee|icc|bde|mpe|pe|[A-Za-z]+-[A-Za-z0-9]+|[A-Za-z]+\\d+)';
+
+// Row shape when the document includes a course title column:
+//   CODE  TITLE (free text)  TYPE  AU (number)  PREREQ (rest of line)
+const ROW_WITH_TITLE_PATTERN = new RegExp(
+  `^([A-Z]{2,4}\\d{3,4}[A-Z]?|[A-Z]{2}\\d?x{3,4})\\s+(.+?)\\s+(${TYPE_TOKEN})\\s+(\\d+(?:\\.\\d+)?)\\s+(.+)$`,
+  'i'
+);
+
+// Row shape when there's no title column at all:
+//   CODE  TYPE  AU (number)  PREREQ (rest of line)
+const ROW_WITHOUT_TITLE_PATTERN = new RegExp(
+  `^([A-Z]{2,4}\\d{3,4}[A-Z]?|[A-Z]{2}\\d?x{3,4})\\s+(${TYPE_TOKEN})\\s+(\\d+(?:\\.\\d+)?)\\s+(.+)$`,
+  'i'
+);
+
+function parseRow(line) {
+  const withTitle = line.match(ROW_WITH_TITLE_PATTERN);
+  if (withTitle && isCourseCode(withTitle[1])) {
+    return {
+      rawCode: withTitle[1],
+      title: clean(withTitle[2]),
+      type: clean(withTitle[3]),
+      credits: Number(withTitle[4]),
+      prerequisite: clean(withTitle[5])
+    };
+  }
+
+  const withoutTitle = line.match(ROW_WITHOUT_TITLE_PATTERN);
+  if (withoutTitle && isCourseCode(withoutTitle[1])) {
+    return {
+      rawCode: withoutTitle[1],
+      title: '',
+      type: clean(withoutTitle[2]),
+      credits: Number(withoutTitle[3]),
+      prerequisite: clean(withoutTitle[4])
+    };
+  }
+
+  return null;
+}
+
 function parseCurriculumText(text) {
   const lines = String(text || '')
     .split(/\r?\n/)
@@ -92,52 +157,59 @@ function parseCurriculumText(text) {
     .filter(Boolean);
 
   const blocks = [];
+  let currentSemesterLabel = null;
 
   for (let index = 0; index < lines.length; index += 1) {
-    if (lines[index] !== 'Course Code Type AU Pre-requisite') continue;
+    const line = lines[index];
+
+    if (SEMESTER_HEADER_PATTERN.test(line)) {
+      currentSemesterLabel = line.toUpperCase();
+      continue;
+    }
+
+    if (!TABLE_HEADER_PATTERN.test(line)) continue;
+
+    // Reference/appendix tables (an MPE structure list, a supplementary
+    // course listing, etc.) reuse this exact same header row further down
+    // the document but aren't part of the actual semester-by-semester
+    // schedule — skip any table header that isn't preceded by a real
+    // semester header rather than guessing it into a semester slot.
+    if (!currentSemesterLabel) continue;
 
     const rows = [];
     let cursor = index + 1;
 
     while (cursor < lines.length) {
-      const line = lines[cursor];
-      if (line === 'Course Code Type AU Pre-requisite') break;
-      if (/^\d+(?:\.\d+)?$/.test(line)) {
+      const candidate = lines[cursor];
+      if (TABLE_HEADER_PATTERN.test(candidate) || SEMESTER_HEADER_PATTERN.test(candidate)) break;
+      if (/^\d+(?:\.\d+)?$/.test(candidate)) {
         cursor += 1;
         break;
       }
 
-      const match = line.match(/^([A-Z]{2,4}\d{3,4}[A-Z]?|[A-Z]{2}\d?x{3,4})\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(.+)$/i);
-      if (match && isCourseCode(match[1])) {
-        rows.push({
-          rawCode: match[1],
-          type: clean(match[2]),
-          credits: Number(match[3]),
-          prerequisite: clean(match[4])
-        });
-      }
+      const parsed = parseRow(candidate);
+      if (parsed) rows.push(parsed);
 
       cursor += 1;
     }
 
-    if (rows.length > 0) blocks.push(rows);
+    if (rows.length > 0) blocks.push({ academicYear: currentSemesterLabel, rows });
+
+    currentSemesterLabel = null; // require an explicit header again before the next block counts
     index = cursor - 1;
   }
 
-  const scheduledBlocks = blocks.slice(0, SEMESTER_LABELS.length);
   const placeholderCounts = {};
 
-  const modules = scheduledBlocks.flatMap((block, blockIndex) => {
-    const academicYear = SEMESTER_LABELS[blockIndex] || `CURRICULUM BLOCK ${blockIndex + 1}`;
-
-    return block.map((row) => {
+  const modules = blocks.flatMap(({ academicYear, rows }) =>
+    rows.map((row) => {
       const rawCode = row.rawCode.toUpperCase();
       placeholderCounts[rawCode] = (placeholderCounts[rawCode] || 0) + 1;
       const code = makePlaceholderCode(rawCode, row.type, placeholderCounts[rawCode]);
 
       return {
         code,
-        name: makeName(rawCode, row.type),
+        name: makeName(rawCode, row.title, row.type),
         credits: row.credits,
         grade: '-',
         status: 'Planned',
@@ -147,8 +219,8 @@ function parseCurriculumText(text) {
         isBde: normaliseModuleCategory(row.type) === 'BDE',
         prerequisite: row.prerequisite
       };
-    });
-  });
+    })
+  );
 
   return {
     modules,

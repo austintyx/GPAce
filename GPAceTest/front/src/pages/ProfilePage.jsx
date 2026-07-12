@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ProfilePage.css';
+import './DashboardPage.css';
+import Sidebar from '../components/Sidebar';
 import { AUTH_API_URL } from '../config/api';
-import { clearSession, getDisplayName, getInitials, getStoredUser, isGuestSession } from '../services/session';
+import { getDisplayName, getInitials, getStoredUser, isGuestSession } from '../services/session';
 
 function ProfilePage() {
   const navigate = useNavigate();
@@ -16,11 +18,6 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
-  const handleLogout = () => {
-    clearSession();
-    navigate('/login');
-  };
 
   const handleSaveDegreeSettings = async (event) => {
     event.preventDefault();
@@ -52,83 +49,73 @@ function ProfilePage() {
   };
 
   return (
-    <main className="profile-page">
-      <div className="profile-page-shell">
-        <header className="profile-topnav">
-          <div className="profile-brand">
-            <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="profile-brand-icon" />
-            <span>GPAce</span>
+    <div className="dashboard-container">
+      <Sidebar />
+
+      <main className="main-content profile-main">
+        <header className="dashboard-header">
+          <div>
+            <h1>Profile</h1>
+            <p>Manage your account details and double degree GPA settings.</p>
           </div>
-          <nav className="profile-nav-links">
-            <a href="/dashboard" className="profile-nav-link">Dashboard</a>
-            <a href="/courses" className="profile-nav-link">Course Planner</a>
-            <a href="/fgo" className="profile-nav-link">FGO Planner</a>
-            <a href="/profile" className="profile-nav-link active">Profile</a>
-          </nav>
-          <button className="profile-page-logout" type="button" onClick={handleLogout}>
-            Log out
+          <button className="btn-secondary" type="button" onClick={() => navigate('/dashboard')}>
+            Back to Dashboard
           </button>
         </header>
 
         <section className="profile-panel">
-          <div className="profile-topbar">
-            <button className="profile-back" type="button" onClick={() => navigate('/dashboard')}>
-              Back to Dashboard
-            </button>
-          </div>
-
           <div className="profile-header">
-          <div className="profile-large-avatar">{initials}</div>
-          <div>
-            <h1>{displayName}</h1>
-            <p>{isGuest ? 'Guest session' : 'Registered student account'}</p>
+            <div className="profile-large-avatar">{initials}</div>
+            <div>
+              <h2>{displayName}</h2>
+              <p>{isGuest ? 'Guest session' : 'Registered student account'}</p>
+            </div>
           </div>
-        </div>
 
-        <div className="profile-details">
-          <div className="detail-row">
-            <span>Full name</span>
-            <strong>{user.name || 'Guest'}</strong>
+          <div className="profile-details">
+            <div className="detail-row">
+              <span>Full name</span>
+              <strong>{user.name || 'Guest'}</strong>
+            </div>
+            <div className="detail-row">
+              <span>Email</span>
+              <strong>{user.email || 'Not available for guest users'}</strong>
+            </div>
+            <div className="detail-row">
+              <span>School</span>
+              <strong>{user.school || 'Not provided'}</strong>
+            </div>
+            <div className="detail-row">
+              <span>Course</span>
+              <strong>{user.course || 'Not provided'}</strong>
+            </div>
+            <div className="detail-row">
+              <span>Double degree</span>
+              <strong>{user.isDoubleDegree ? 'Yes' : 'No'}</strong>
+            </div>
+            {user.isDoubleDegree && (
+              <>
+                <div className="detail-row">
+                  <span>Degree 1 GPA</span>
+                  <strong>{user.primaryDegreeName || user.course || 'Not provided'}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Degree 2 GPA</span>
+                  <strong>{user.secondaryDegreeName || 'Not provided'}</strong>
+                </div>
+              </>
+            )}
+            <div className="detail-row">
+              <span>Account type</span>
+              <strong>{isGuest ? 'Guest' : 'Registered'}</strong>
+            </div>
           </div>
-          <div className="detail-row">
-            <span>Email</span>
-            <strong>{user.email || 'Not available for guest users'}</strong>
-          </div>
-          <div className="detail-row">
-            <span>School</span>
-            <strong>{user.school || 'Not provided'}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Course</span>
-            <strong>{user.course || 'Not provided'}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Double degree</span>
-            <strong>{user.isDoubleDegree ? 'Yes' : 'No'}</strong>
-          </div>
-          {user.isDoubleDegree && (
-            <>
-              <div className="detail-row">
-                <span>Degree 1 GPA</span>
-                <strong>{user.primaryDegreeName || user.course || 'Not provided'}</strong>
-              </div>
-              <div className="detail-row">
-                <span>Degree 2 GPA</span>
-                <strong>{user.secondaryDegreeName || 'Not provided'}</strong>
-              </div>
-            </>
-          )}
-          <div className="detail-row">
-            <span>Account type</span>
-            <strong>{isGuest ? 'Guest' : 'Registered'}</strong>
-          </div>
-        </div>
 
           {!isGuest && (
             <form className="profile-form" onSubmit={handleSaveDegreeSettings}>
               <h2>GPA Settings</h2>
               {(message || error) && (
-                <div className={error ? 'profile-notice error' : 'profile-notice success'}>
+                <div className={error ? 'notice error' : 'notice success'}>
                   {error || message}
                 </div>
               )}
@@ -150,14 +137,20 @@ function ProfilePage() {
                   <input value={secondaryDegreeName} onChange={(event) => setSecondaryDegreeName(event.target.value)} />
                 </label>
               )}
-              <button className="profile-save" type="submit" disabled={saving}>
+              <button className="profile-save btn-primary" type="submit" disabled={saving}>
                 {saving ? 'Saving...' : 'Save GPA Settings'}
               </button>
             </form>
           )}
+
+          {isGuest && (
+            <div className="profile-guest-note">
+              Guest sessions can't save profile changes. Sign up to keep your GPA settings and unlock PDF import.
+            </div>
+          )}
         </section>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 
