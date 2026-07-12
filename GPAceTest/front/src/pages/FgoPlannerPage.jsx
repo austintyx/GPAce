@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './DashboardPage.css';
 import './FgoPlannerPage.css';
+import Sidebar from '../components/Sidebar';
 import { fetchAcademicModules, updateAcademicModuleBde } from '../services/academicApi';
-import { clearSession, getDisplayName, getInitials, isGuestSession } from '../services/session';
+import { isGuestSession } from '../services/session';
 
 const gradePoints = {
   'A+': 5,
@@ -147,8 +148,6 @@ function optimiseFgo(modules, isDoubleDegree, selectedDegree) {
 }
 
 function FgoPlannerPage() {
-  const displayName = getDisplayName();
-  const initials = getInitials(displayName);
   const [isGuest] = useState(isGuestSession);
   const [modules, setModules] = useState([]);
   const [message, setMessage] = useState('');
@@ -159,11 +158,6 @@ function FgoPlannerPage() {
   const [isDoubleDegree, setIsDoubleDegree] = useState(false);
   const [degreeNames, setDegreeNames] = useState({ primary: 'Degree 1', secondary: 'Degree 2' });
   const [selectedDegree, setSelectedDegree] = useState('primary');
-
-  const handleLogout = () => {
-    clearSession();
-    window.location.href = '/login';
-  };
 
   const loadModules = useCallback(async () => {
     setLoading(true);
@@ -251,33 +245,7 @@ function FgoPlannerPage() {
 
   return (
     <div className="dashboard-container">
-      <header className="sidebar">
-        <div className="logo">
-          <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="logo-icon" />
-          <h2>GPAce</h2>
-        </div>
-        <nav className="nav-menu">
-          <a href="/dashboard" className="nav-item">
-            <span className="nav-icon">Dashboard</span>
-          </a>
-          <a href="/courses" className="nav-item">
-            <span className="nav-icon">Course Planner</span>
-          </a>
-          <a href="/fgo" className="nav-item active">
-            <span className="nav-icon">FGO Planner</span>
-          </a>
-        </nav>
-        <div className="user-profile">
-          <div className="profile-avatar">{initials}</div>
-          <div className="profile-info">
-            <div className="profile-name">{displayName}</div>
-            <a className="profile-link" href="/profile">View Profile</a>
-          </div>
-        </div>
-        <button className="logout-button" type="button" onClick={handleLogout}>
-          Log out
-        </button>
-      </header>
+      <Sidebar />
 
       <main className="main-content planner-main">
         <header className="dashboard-header planner-header">

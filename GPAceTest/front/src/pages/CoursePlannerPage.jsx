@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './DashboardPage.css';
 import './CoursePlannerPage.css';
+import Sidebar from '../components/Sidebar';
+import { ChevronDownIcon } from '../components/Icons';
 import { fetchAcademicModules, updateAcademicModule } from '../services/academicApi';
-import { clearSession, getDisplayName, getInitials, isGuestSession } from '../services/session';
+import { isGuestSession } from '../services/session';
 
 const defaultSemesters = [
   'YEAR 1 SEMESTER 1',
@@ -24,12 +26,21 @@ function sumCredits(modules) {
   return modules.reduce((sum, module) => sum + Number(module.credits || 0), 0);
 }
 
+// Semester columns are always kept alphabetically sorted (e.g. "YEAR 2
+// SEMESTER 1" < "YEAR 2 SEMESTER 2" < "YEAR 2 SPECIAL SEMESTER", since
+// "SEMESTER" sorts before "SPECIAL"), so semesters discovered dynamically
+// from imported modules land in the right spot instead of always being
+// appended to the end of the list.
+function sortSemesters(list) {
+  return [...list].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
 function loadStoredSemesters() {
   try {
     const saved = JSON.parse(localStorage.getItem('planner_semesters') || 'null');
-    return Array.isArray(saved) && saved.length > 0 ? saved : defaultSemesters;
+    return sortSemesters(Array.isArray(saved) && saved.length > 0 ? saved : defaultSemesters);
   } catch (err) {
-    return defaultSemesters;
+    return sortSemesters(defaultSemesters);
   }
 }
 
@@ -37,12 +48,24 @@ function saveStoredSemesters(semesters) {
   localStorage.setItem('planner_semesters', JSON.stringify(semesters));
 }
 
+function loadCollapsedSemesters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('planner_collapsed_semesters') || 'null');
+    return Array.isArray(saved) ? new Set(saved) : new Set();
+  } catch (err) {
+    return new Set();
+  }
+}
+
+function saveCollapsedSemesters(collapsed) {
+  localStorage.setItem('planner_collapsed_semesters', JSON.stringify(Array.from(collapsed)));
+}
+
 function CoursePlannerPage() {
-  const displayName = getDisplayName();
-  const initials = getInitials(displayName);
   const [isGuest] = useState(isGuestSession);
   const [modules, setModules] = useState([]);
   const [semesters, setSemesters] = useState(loadStoredSemesters);
+  const [collapsedSemesters, setCollapsedSemesters] = useState(loadCollapsedSemesters);
   const [editingSemester, setEditingSemester] = useState('');
   const [draftSemesterName, setDraftSemesterName] = useState('');
   const [draggedModuleKey, setDraggedModuleKey] = useState('');
@@ -50,11 +73,6 @@ function CoursePlannerPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const handleLogout = () => {
-    clearSession();
-    window.location.href = '/login';
-  };
 
   const loadModules = useCallback(async () => {
     setLoading(true);
@@ -89,10 +107,21 @@ function CoursePlannerPage() {
         if (label === 'Unscheduled') return;
         if (!nextSemesters.includes(label)) nextSemesters.push(label);
       });
-      saveStoredSemesters(nextSemesters);
-      return nextSemesters;
+      const sorted = sortSemesters(nextSemesters);
+      saveStoredSemesters(sorted);
+      return sorted;
     });
   }, [modules]);
+
+  const toggleSemesterCollapsed = (semester) => {
+    setCollapsedSemesters((current) => {
+      const next = new Set(current);
+      if (next.has(semester)) next.delete(semester);
+      else next.add(semester);
+      saveCollapsedSemesters(next);
+      return next;
+    });
+  };
 
   const groupedModules = useMemo(() => {
     return semesters.reduce((groups, semester) => ({
@@ -157,7 +186,7 @@ function CoursePlannerPage() {
       count += 1;
     }
 
-    const nextSemesters = [...semesters, label];
+    const nextSemesters = sortSemesters([...semesters, label]);
     setSemesters(nextSemesters);
     saveStoredSemesters(nextSemesters);
     setEditingSemester(label);
@@ -183,6 +212,13 @@ function CoursePlannerPage() {
     saveStoredSemesters(nextSemesters);
     setModules(nextModules);
     persistModules(nextModules);
+    setCollapsedSemesters((current) => {
+      if (!current.has(semester)) return current;
+      const next = new Set(current);
+      next.delete(semester);
+      saveCollapsedSemesters(next);
+      return next;
+    });
 
     try {
       if (!isGuest) {
@@ -207,7 +243,7 @@ function CoursePlannerPage() {
       return;
     }
 
-    const nextSemesters = semesters.map((semester) => semester === oldName ? newName : semester);
+    const nextSemesters = sortSemesters(semesters.map((semester) => semester === oldName ? newName : semester));
     const affectedModules = modules.filter((module) => (module.academicYear || 'Unscheduled') === oldName);
     const nextModules = modules.map((module) =>
       (module.academicYear || 'Unscheduled') === oldName
@@ -219,6 +255,14 @@ function CoursePlannerPage() {
     saveStoredSemesters(nextSemesters);
     setModules(nextModules);
     persistModules(nextModules);
+    setCollapsedSemesters((current) => {
+      if (!current.has(oldName)) return current;
+      const next = new Set(current);
+      next.delete(oldName);
+      next.add(newName);
+      saveCollapsedSemesters(next);
+      return next;
+    });
     setEditingSemester('');
     setMessage('');
     setError('');
@@ -263,33 +307,7 @@ function CoursePlannerPage() {
 
   return (
     <div className="dashboard-container">
-      <header className="sidebar">
-        <div className="logo">
-          <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="GPAce" className="logo-icon" />
-          <h2>GPAce</h2>
-        </div>
-        <nav className="nav-menu">
-          <a href="/dashboard" className="nav-item">
-            <span className="nav-icon">Dashboard</span>
-          </a>
-          <a href="/courses" className="nav-item active">
-            <span className="nav-icon">Course Planner</span>
-          </a>
-          <a href="/fgo" className="nav-item">
-            <span className="nav-icon">FGO Planner</span>
-          </a>
-        </nav>
-        <div className="user-profile">
-          <div className="profile-avatar">{initials}</div>
-          <div className="profile-info">
-            <div className="profile-name">{displayName}</div>
-            <a className="profile-link" href="/profile">View Profile</a>
-          </div>
-        </div>
-        <button className="logout-button" type="button" onClick={handleLogout}>
-          Log out
-        </button>
-      </header>
+      <Sidebar />
 
       <main className="main-content planner-main">
         <header className="dashboard-header planner-header">
@@ -345,11 +363,12 @@ function CoursePlannerPage() {
             {semesters.map((semester) => {
               const semesterModules = groupedModules[semester] || [];
               const isEditing = editingSemester === semester;
+              const isCollapsed = collapsedSemesters.has(semester);
 
               return (
                 <div
                   key={semester}
-                  className={`semester-board ${activeDropSemester === semester ? 'drop-active' : ''}`}
+                  className={`semester-board ${activeDropSemester === semester ? 'drop-active' : ''} ${isCollapsed ? 'collapsed' : ''}`}
                   onDragOver={(event) => {
                     event.preventDefault();
                     setActiveDropSemester(semester);
@@ -386,6 +405,15 @@ function CoursePlannerPage() {
                     </div>
                     <div className="semester-actions">
                       <span>{sumCredits(semesterModules)} AU</span>
+                      <button
+                        type="button"
+                        className="semester-collapse-toggle"
+                        onClick={() => toggleSemesterCollapsed(semester)}
+                        aria-label={isCollapsed ? `Expand ${semester}` : `Collapse ${semester}`}
+                        aria-expanded={!isCollapsed}
+                      >
+                        <ChevronDownIcon width={16} height={16} />
+                      </button>
                       <button type="button" onClick={() => {
                         setEditingSemester(semester);
                         setDraftSemesterName(semester);
@@ -398,12 +426,14 @@ function CoursePlannerPage() {
                     </div>
                   </div>
 
-                  <div className="semester-module-list">
-                    {semesterModules.map((module) => renderDraggableModule(module))}
-                    {semesterModules.length === 0 && (
-                      <div className="empty-semester">Drop modules here</div>
-                    )}
-                  </div>
+                  {!isCollapsed && (
+                    <div className="semester-module-list">
+                      {semesterModules.map((module) => renderDraggableModule(module))}
+                      {semesterModules.length === 0 && (
+                        <div className="empty-semester">Drop modules here</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

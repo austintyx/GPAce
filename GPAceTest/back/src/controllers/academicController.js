@@ -1,26 +1,15 @@
 const Module = require('../models/modules');
 const User = require('../models/user');
-const { PDFParse } = require('pdf-parse');
 const { calculateGpa, calculateGpaByBucket, buildGradePlan } = require('../utils/gpa');
 const { parseTranscriptText } = require('../utils/transcriptParser');
 const { parseCurriculumText, normaliseModuleCategory } = require('../utils/curriculumParser');
-const { buildDocumentMap, classifyFromDocument, inferGpaBucket } = require('../utils/gpaBucketClassifier');
+const { buildDocumentMap, inferGpaBucket, resolveProgrammeBuckets, lookupDocumentBucket } = require('../utils/gpaBucketClassifier');
+const { extractPdfText, extractTranscriptPdfText } = require('../utils/pdfTextExtractor');
 
 function getUserId(req) {
   const bearer = req.headers.authorization || '';
   const tokenUserId = bearer.match(/^Bearer\s+token-([a-f\d]{24})-/i);
   return req.body.userId || req.query.userId || req.headers['x-user-id'] || (tokenUserId && tokenUserId[1]);
-}
-
-async function extractPdfText(buffer) {
-  const parser = new PDFParse({ data: buffer });
-
-  try {
-    const result = await parser.getText();
-    return result.text || '';
-  } finally {
-    await parser.destroy();
-  }
 }
 
 async function resolveUser(req, res) {
@@ -54,14 +43,14 @@ function buildAcademicSummary(user, modules) {
   };
 }
 
-async function readUploadedText(req, fileLabel) {
+async function readUploadedText(req, fileLabel, { columnAware = false } = {}) {
   if (!req.file) throw new Error(`Upload a PDF or text ${fileLabel} file.`);
 
   const originalName = req.file.originalname || '';
   const isPdf = req.file.mimetype === 'application/pdf' || originalName.toLowerCase().endsWith('.pdf');
   const isText = req.file.mimetype === 'text/plain' || originalName.toLowerCase().endsWith('.txt');
 
-  if (isPdf) return extractPdfText(req.file.buffer);
+  if (isPdf) return columnAware ? extractTranscriptPdfText(req.file.buffer) : extractPdfText(req.file.buffer);
   if (isText) return req.file.buffer.toString('utf8');
 
   throw new Error(`Only PDF and plain text ${fileLabel} files are supported right now.`);
@@ -96,10 +85,12 @@ exports.importTranscript = async (req, res) => {
       return res.status(400).json({ message: 'No modules could be detected from the transcript text.', ...parsed });
     }
 
+    const existingModules = await Module.find({ user: user._id });
+    const programmeBucketMap = resolveProgrammeBuckets(user, parsed.programmes);
     const savedModules = [];
     for (const moduleData of parsed.modules) {
       const academicYear = moduleData.academicYear || req.body.academicYear || user.academicYear || 'Unknown';
-      const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData);
+      const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData, existingModules, programmeBucketMap);
       const moduleCategory = resolveModuleCategory(moduleData);
       const isBde = resolveIsBde(moduleData);
       const saved = await Module.findOneAndUpdate(
@@ -108,6 +99,7 @@ exports.importTranscript = async (req, res) => {
         { new: true, upsert: true, runValidators: true }
       );
       savedModules.push(saved);
+      existingModules.push(saved);
     }
 
     res.status(201).json({
@@ -130,7 +122,7 @@ exports.uploadTranscript = async (req, res) => {
       return res.status(400).json({ message: 'Upload a PDF or text transcript file.' });
     }
 
-    const transcriptText = await readUploadedText(req, 'transcript');
+    const transcriptText = await readUploadedText(req, 'transcript', { columnAware: true });
 
     const parsed = parseTranscriptText(transcriptText);
 
@@ -142,10 +134,12 @@ exports.uploadTranscript = async (req, res) => {
       });
     }
 
+    const existingModules = await Module.find({ user: user._id });
+    const programmeBucketMap = resolveProgrammeBuckets(user, parsed.programmes);
     const savedModules = [];
     for (const moduleData of parsed.modules) {
       const academicYear = moduleData.academicYear || user.academicYear || 'Unknown';
-      const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData);
+      const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData, existingModules, programmeBucketMap);
       const moduleCategory = resolveModuleCategory(moduleData);
       const isBde = resolveIsBde(moduleData);
       const saved = await Module.findOneAndUpdate(
@@ -154,6 +148,7 @@ exports.uploadTranscript = async (req, res) => {
         { new: true, upsert: true, runValidators: true }
       );
       savedModules.push(saved);
+      existingModules.push(saved);
     }
 
     const allModules = await Module.find({ user: user._id }).sort({ academicYear: 1, code: 1 });
@@ -209,13 +204,14 @@ exports.uploadCurriculum = async (req, res) => {
         {
           ...moduleData,
           user: user._id,
-          gpaBucket: moduleData.gpaBucket || inferGpaBucket(user, moduleData),
+          gpaBucket: moduleData.gpaBucket || inferGpaBucket(user, moduleData, existingModules),
           moduleCategory: resolveModuleCategory(moduleData),
           isBde: resolveIsBde(moduleData)
         },
         { new: true, upsert: true, runValidators: true }
       );
       savedModules.push(saved);
+      existingModules.push(saved);
       importedKeys.add(importKey);
     }
 
@@ -268,6 +264,8 @@ exports.upsertModule = async (req, res) => {
       return res.status(400).json({ message: 'code, name and credits are required.' });
     }
 
+    const existingModules = await Module.find({ user: user._id });
+
     const module = await Module.findOneAndUpdate(
       { user: user._id, code: code.toUpperCase(), academicYear },
       {
@@ -280,7 +278,7 @@ exports.upsertModule = async (req, res) => {
         status,
         moduleCategory: moduleCategory || (isBde ? 'BDE' : 'Core'),
         isBde,
-        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear })
+        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear }, existingModules)
       },
       { new: true, upsert: true, runValidators: true }
     );
@@ -313,6 +311,8 @@ exports.updateModule = async (req, res) => {
       return res.status(400).json({ message: 'code, name and credits are required.' });
     }
 
+    const existingModules = await Module.find({ user: user._id, _id: { $ne: req.params.moduleId } });
+
     const module = await Module.findOneAndUpdate(
       { _id: req.params.moduleId, user: user._id },
       {
@@ -325,7 +325,7 @@ exports.updateModule = async (req, res) => {
         ...(moduleCategory ? { moduleCategory } : {}),
         ...(typeof isBde === 'boolean' ? { isBde } : {}),
         ...(typeof isBde === 'boolean' && !moduleCategory ? { moduleCategory: isBde ? 'BDE' : 'Core' } : {}),
-        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear })
+        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear }, existingModules)
       },
       { new: true, runValidators: true }
     );
@@ -417,16 +417,22 @@ exports.predictGpaBuckets = async (req, res) => {
     if (!user) return;
 
     const modules = await Module.find({ user: user._id });
+    // Any module the user has already manually assigned to primary/secondary/
+    // shared acts as training data for the prefix-based classifier, so a
+    // handful of manual corrections lets the rest of the same-prefix modules
+    // get predicted correctly too.
+    const referenceModules = [...modules];
     const updatedModules = [];
 
     for (const module of modules) {
-      const gpaBucket = inferGpaBucket(user, module);
+      const gpaBucket = inferGpaBucket(user, module, referenceModules);
       const updated = await Module.findOneAndUpdate(
         { _id: module._id, user: user._id },
         { gpaBucket },
         { new: true, runValidators: true }
       );
       updatedModules.push(updated);
+      referenceModules.push(updated);
     }
 
     res.json({
@@ -448,20 +454,39 @@ exports.uploadGpaMapping = async (req, res) => {
     const mappingText = await readUploadedText(req, 'GPA mapping');
     const documentMap = buildDocumentMap(mappingText, user);
     const modules = await Module.find({ user: user._id });
+
+    // A GPA mapping document supplements/corrects the bucket for the course
+    // codes it explicitly lists — it isn't a full re-classification pass, and
+    // it only ever touches modules that are still 'Planned'. Completed (and
+    // in-progress) modules already have a bucket that was either set
+    // deliberately or resolved from the transcript's own PROGRAMME headers,
+    // which is more reliable than a guess from a separately uploaded mapping
+    // document, so those are left completely untouched (no DB write at all)
+    // no matter what the document says. Use "Predict GPA Categories" for
+    // guessing buckets on modules the document doesn't mention.
     const updatedModules = [];
+    const matchedModules = [];
 
     for (const module of modules) {
-      const gpaBucket = classifyFromDocument(user, module, documentMap);
+      const mappedBucket = lookupDocumentBucket(module.code, documentMap);
+
+      if (!mappedBucket || module.status !== 'Planned') {
+        updatedModules.push(module);
+        continue;
+      }
+
       const updated = await Module.findOneAndUpdate(
         { _id: module._id, user: user._id },
-        { gpaBucket },
+        { gpaBucket: mappedBucket },
         { new: true, runValidators: true }
       );
+      matchedModules.push(updated);
       updatedModules.push(updated);
     }
 
     res.json({
       modules: updatedModules,
+      matchedModules,
       summary: buildAcademicSummary(user, updatedModules),
       detectedCodes: Object.keys(documentMap).length,
       extractedTextPreview: mappingText.slice(0, 1000)

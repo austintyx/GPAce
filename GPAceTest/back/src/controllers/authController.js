@@ -1,3 +1,4 @@
+const bcrypt = require('bcrypt');
 const User = require('../models/user');
 const mongoose = require('mongoose');
 
@@ -40,7 +41,8 @@ exports.signup = async (req, res) => {
             return res.status(400).json({ message: "Email already registered." });
         }
 
-        // Create new user
+        // Hash password and create new user
+        const hashedPassword = await bcrypt.hash(password, 10);
         const user = new User({
             name: name.trim(),
             school: school.trim(),
@@ -49,7 +51,7 @@ exports.signup = async (req, res) => {
             primaryDegreeName: primaryDegreeName ? primaryDegreeName.trim() : (course ? course.trim() : ""),
             secondaryDegreeName: secondaryDegreeName ? secondaryDegreeName.trim() : "",
             email: normalizedEmail,
-            password
+            password: hashedPassword
         });
         await user.save();
 
@@ -73,7 +75,11 @@ exports.login = async (req, res) => {
         const normalizedEmail = String(email || '').trim().toLowerCase();
 
         const user = await User.findOne({ email: normalizedEmail });
-        if (!user || user.password !== password) {
+        if (!user) {
+            return res.status(401).json({ message: "Invalid email or password." });
+        }
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) {
             return res.status(401).json({ message: "Invalid email or password." });
         }
 

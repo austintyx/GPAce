@@ -1,12 +1,12 @@
 .fgo-budget-lines {
   display: grid;
   gap: 8px;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 12px;
 }
 
 .fgo-budget-lines strong {
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .fgo-recommendation {
@@ -14,16 +14,16 @@
 }
 
 .section-subtitle {
-  color: #6b7280;
-  font-size: 14px;
+  color: var(--color-muted);
+  font-size: 13.5px;
   margin: 6px 0 0;
 }
 
 .fgo-pill,
 .fgo-selected-badge {
-  background: #eef2ff;
-  border-radius: 999px;
-  color: #4338ca;
+  background: var(--color-primary-50);
+  border-radius: var(--radius-full);
+  color: var(--color-primary-dark);
   font-size: 12px;
   font-weight: 700;
   padding: 6px 10px;
@@ -31,12 +31,12 @@
 }
 
 .fgo-selected-badge {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .fgo-muted {
-  color: #6b7280;
+  color: var(--color-muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -48,11 +48,17 @@
 }
 
 .fgo-module-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   display: grid;
   gap: 12px;
   padding: 14px;
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.fgo-module-card:hover {
+  border-color: var(--color-primary-200);
+  box-shadow: var(--shadow-sm);
 }
 
 .fgo-module-card strong,
@@ -65,7 +71,7 @@
 }
 
 .fgo-module-card span {
-  color: #4b5563;
+  color: var(--color-ink-soft);
   font-size: 13px;
 }
 
@@ -76,17 +82,17 @@
 }
 
 .fgo-module-meta span {
-  background: #f3f4f6;
-  border-radius: 999px;
-  color: #374151;
+  background: var(--color-bg);
+  border-radius: var(--radius-full);
+  color: var(--color-ink-soft);
   font-weight: 700;
   padding: 5px 9px;
 }
 
 .fgo-empty {
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
-  color: #6b7280;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
   font-weight: 700;
   padding: 18px;
   text-align: center;

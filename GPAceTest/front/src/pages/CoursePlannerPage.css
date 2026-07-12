@@ -16,7 +16,7 @@
 
 .planner-layout {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: 340px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -28,15 +28,16 @@
 
 .course-drawer {
   position: sticky;
-  top: 24px;
-  background: white;
-  border: 1px solid #e5e5e7;
-  border-radius: 12px;
+  top: 90px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 18px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 110px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--shadow-sm);
 }
 
 .course-drawer-header {
@@ -49,13 +50,13 @@
 
 .course-drawer-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .course-drawer-header span {
-  background: #eef2ff;
-  color: #4338ca;
-  border-radius: 999px;
+  background: var(--color-primary-50);
+  color: var(--color-primary-dark);
+  border-radius: var(--radius-full);
   font-size: 12px;
   font-weight: 700;
   padding: 4px 9px;
@@ -69,40 +70,42 @@
 }
 
 .unplaced-drop {
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
-  color: #64748b;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
   font-size: 13px;
   font-weight: 700;
   padding: 12px;
   text-align: center;
   margin-bottom: 12px;
+  transition: border-color 0.2s var(--ease-out), background 0.2s var(--ease-out), color 0.2s var(--ease-out);
 }
 
 .unplaced-drop.drop-active {
-  border-color: #6366f1;
-  background: #eef2ff;
-  color: #4338ca;
+  border-color: var(--color-primary);
+  background: var(--color-primary-50);
+  color: var(--color-primary-dark);
 }
 
 .unplaced-count {
-  color: #6b7280;
+  color: var(--color-muted);
   font-size: 12px;
   font-weight: 700;
   padding: 8px 2px;
 }
 
 .semester-board {
-  background: white;
-  border: 1px solid #e5e5e7;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 20px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
 .semester-board.drop-active {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
 }
 
 .semester-header {
@@ -115,12 +118,12 @@
 
 .semester-header h2 {
   cursor: text;
-  font-size: 20px;
+  font-size: 19px;
   margin: 0 0 4px;
 }
 
 .semester-header p {
-  color: #6b7280;
+  color: var(--color-muted);
   font-size: 13px;
   margin: 0;
 }
@@ -134,9 +137,9 @@
 }
 
 .semester-actions span {
-  background: #eef2ff;
-  color: #4338ca;
-  border-radius: 999px;
+  background: var(--color-primary-50);
+  color: var(--color-primary-dark);
+  border-radius: var(--radius-full);
   font-size: 12px;
   font-weight: 700;
   padding: 5px 10px;
@@ -144,24 +147,52 @@
 }
 
 .semester-actions button {
-  border: 1px solid #d1d5db;
-  background: white;
-  border-radius: 8px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-weight: 700;
   padding: 7px 10px;
+  transition: background 0.2s var(--ease-out);
+}
+
+.semester-actions button:hover {
+  background: var(--color-bg);
 }
 
 .semester-actions button:last-child {
-  border-color: #fecaca;
-  color: #b91c1c;
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.semester-actions button:last-child:hover {
+  background: var(--color-danger-bg);
+}
+
+.semester-collapse-toggle {
+  align-items: center;
+  display: flex !important;
+  justify-content: center;
+  padding: 7px !important;
+}
+
+.semester-collapse-toggle svg {
+  transition: transform 0.2s var(--ease-out);
+}
+
+.semester-board.collapsed .semester-collapse-toggle svg {
+  transform: rotate(-90deg);
+}
+
+.semester-board.collapsed .semester-header {
+  margin-bottom: 0;
 }
 
 .semester-name-input {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
   font: inherit;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   padding: 8px 10px;
   width: min(420px, 100%);
@@ -169,8 +200,8 @@
 
 .semester-name-input:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
 }
 
 .semester-module-list {
@@ -179,14 +210,20 @@
 }
 
 .planner-module-card {
-  border: 1px solid #edf0f4;
-  border-radius: 10px;
-  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   cursor: grab;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 12px;
+  transition: box-shadow 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+
+.planner-module-card:hover {
+  border-color: var(--color-primary-200);
+  box-shadow: var(--shadow-sm);
 }
 
 .planner-module-card:active {
@@ -194,7 +231,8 @@
 }
 
 .planner-module-card.completed {
-  background: #f8fffb;
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
 }
 
 .planner-module-card.compact {
@@ -208,7 +246,7 @@
 }
 
 .planner-module-card span {
-  color: #374151;
+  color: var(--color-ink-soft);
   font-size: 13px;
 }
 
@@ -220,7 +258,7 @@
 }
 
 .planner-status {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   display: inline-block;
   font-size: 11px;
   font-weight: 700;
@@ -229,25 +267,25 @@
 }
 
 .planner-status.completed {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .planner-status.planned {
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--color-primary-50);
+  color: var(--color-primary-dark);
 }
 
 .planner-status.in-progress {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .empty-semester,
 .empty-drawer {
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
-  color: #9ca3af;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-faint);
   font-weight: 700;
   padding: 18px;
   text-align: center;
