@@ -72,10 +72,8 @@ function CoursePlannerPage() {
   const [activeDropSemester, setActiveDropSemester] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const loadModules = useCallback(async () => {
-    setLoading(true);
     setMessage('');
     setError('');
 
@@ -90,8 +88,6 @@ function CoursePlannerPage() {
       setModules(data.modules || []);
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }, [isGuest]);
 
@@ -318,9 +314,6 @@ function CoursePlannerPage() {
           <div className="planner-actions">
             <button className="btn-primary" type="button" onClick={addSemester}>
               Add Semester
-            </button>
-            <button className="btn-secondary" type="button" onClick={loadModules} disabled={loading}>
-              {loading ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
         </header>
