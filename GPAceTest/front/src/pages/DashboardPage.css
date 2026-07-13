@@ -261,6 +261,42 @@
   min-width: 0;
 }
 
+.honours-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  margin-bottom: 8px;
+}
+
+.honours-badge.tier-pass {
+  background: var(--color-bg);
+  color: var(--color-muted);
+}
+
+.honours-badge.tier-honours {
+  background: var(--color-primary-50);
+  color: var(--color-primary-dark);
+}
+
+.honours-badge.tier-merit {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.honours-badge.tier-distinction {
+  background: var(--color-accent-50);
+  color: var(--color-accent-dark);
+}
+
+.honours-badge.tier-highest-distinction {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: white;
+}
+
 .gpa-hero-credits {
   font-size: 13.5px;
   color: var(--color-muted);

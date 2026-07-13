@@ -105,6 +105,18 @@ function getGradeTier(grade) {
   return gradeTierMap[String(grade || '').toUpperCase()] || 'unset';
 }
 
+const honoursBands = [
+  { min: 4.5, label: 'Highest Distinction', tier: 'highest-distinction' },
+  { min: 4.0, label: 'Distinction', tier: 'distinction' },
+  { min: 3.5, label: 'Merit', tier: 'merit' },
+  { min: 3.0, label: 'Honours', tier: 'honours' }
+];
+
+function getHonoursTier(gpa) {
+  const value = Number(gpa) || 0;
+  return honoursBands.find((band) => value >= band.min) || { label: 'Pass', tier: 'pass' };
+}
+
 function formatGpaDelta(current, target) {
   const diff = Number((current - target).toFixed(2));
   if (diff >= 0) return `+${diff.toFixed(2)} above your goal`;
@@ -365,6 +377,7 @@ function GpaTrio({ title, badge, gpaValue, credits, target, onTargetChange, requ
     : gpaValue >= target
       ? 'var(--color-success)'
       : 'var(--color-primary)';
+  const honours = getHonoursTier(gpaValue);
 
   return (
     <div className="gpa-trio">
@@ -388,6 +401,9 @@ function GpaTrio({ title, badge, gpaValue, credits, target, onTargetChange, requ
             </div>
           </div>
           <div className="gpa-hero-text">
+            {credits > 0 && (
+              <span className={`honours-badge tier-${honours.tier}`}>{honours.label}</span>
+            )}
             <div className="gpa-hero-credits">{credits} completed credits</div>
             <div className={`gpa-hero-delta ${gpaValue >= target ? 'positive' : 'negative'}`}>
               {formatGpaDelta(gpaValue, target)}
@@ -467,6 +483,7 @@ function DashboardPage() {
   const [error, setError] = useState('');
   const [isGuest] = useState(isGuestSession);
   const addModuleCodeInputRef = useRef(null);
+  const pendingResyncRef = useRef(false);
 
   const loadDashboard = useCallback(async () => {
     if (isGuest) {
@@ -528,6 +545,13 @@ function DashboardPage() {
   useEffect(() => {
     if (courses.length > 0) refreshPlan();
   }, [refreshPlan, courses]);
+
+  useEffect(() => {
+    if (editableCell === null && pendingResyncRef.current) {
+      pendingResyncRef.current = false;
+      loadDashboard();
+    }
+  }, [editableCell, loadDashboard]);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -729,18 +753,22 @@ function DashboardPage() {
       return;
     }
 
+    const editedCourseKey = course._id || `${course.code}-${course.academicYear}`;
     setEditingModuleId(course._id || course.code);
 
     try {
       await updateAcademicModule(updatedCourse);
-      await loadDashboard();
+      pendingResyncRef.current = true;
       setMessage('Module updated.');
     } catch (err) {
       setError(err.message);
+      pendingResyncRef.current = false;
       await loadDashboard();
     } finally {
       setEditingModuleId('');
-      setEditableCell(null);
+      setEditableCell((current) =>
+        current && current.courseKey === editedCourseKey && current.field === field ? null : current
+      );
     }
   };
 
@@ -763,8 +791,8 @@ function DashboardPage() {
       return (
         <span
           className={`editable-cell ${className}`}
-          title="Double-click to edit"
-          onDoubleClick={() => setEditableCell({ courseKey, field })}
+          title="Click to edit"
+          onClick={() => setEditableCell({ courseKey, field })}
         >
           {value}
         </span>
@@ -809,8 +837,8 @@ function DashboardPage() {
       return (
         <span
           className={`editable-cell ${displayClass}`}
-          title="Double-click to edit"
-          onDoubleClick={() => setEditableCell({ courseKey, field })}
+          title="Click to edit"
+          onClick={() => setEditableCell({ courseKey, field })}
         >
           {value}
         </span>
@@ -823,11 +851,12 @@ function DashboardPage() {
         autoFocus
         value={value}
         disabled={editingModuleId === (course._id || course.code)}
-        onChange={(event) => handleModuleFieldChange(course, field, event.target.value)}
-        onBlur={() => setEditableCell(null)}
+        onChange={(event) => updateLocalCourseField(course, field, event.target.value)}
+        onBlur={(event) => handleModuleFieldChange(course, field, event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             setEditableCell(null);
+            loadDashboard();
           }
         }}
       >
@@ -1154,9 +1183,6 @@ function DashboardPage() {
             <div className="section-header">
               <h2>Modules & Courses</h2>
               <div className="section-actions">
-                <button className="btn-secondary" type="button" onClick={loadDashboard} disabled={loading}>
-                  {loading ? 'Refreshing...' : isGuest ? 'Reload Local' : 'Refresh'}
-                </button>
                 <button className="btn-danger" type="button" onClick={openClearConfirm} disabled={loading || courses.length === 0}>
                   Clear All
                 </button>
