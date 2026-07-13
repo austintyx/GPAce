@@ -1,3 +1,68 @@
+.planner-header {
+  flex-wrap: nowrap;
+}
+
+.planner-header > div:first-child {
+  min-width: 0;
+}
+
+.fgo-scheme-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.fgo-scheme-label {
+  color: var(--color-muted);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fgo-scheme-segmented {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.fgo-scheme-segment {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 7px 16px;
+  transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.fgo-scheme-segment:hover:not(.active) {
+  color: var(--color-ink-soft);
+}
+
+.fgo-scheme-segment:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.fgo-scheme-segment.active {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-ink);
+}
+
+.planner-main .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
 .fgo-budget-lines {
   display: grid;
   gap: 8px;
@@ -96,4 +161,33 @@
   font-weight: 700;
   padding: 18px;
   text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .planner-main .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .planner-main .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-header h1 {
+    font-size: 24px;
+  }
+
+  .planner-header p {
+    font-size: 13px;
+  }
+
+  .fgo-scheme-label {
+    display: none;
+  }
+
+  .fgo-scheme-segment {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
 }

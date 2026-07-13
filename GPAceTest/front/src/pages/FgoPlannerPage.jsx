@@ -20,9 +20,12 @@ const gradePoints = {
   U: 0
 };
 
-const coreCap = 12;
-const bdeCap = 12;
 const creditScale = 2;
+
+const fgoSchemes = {
+  '21au': { label: '21 AU', coreCap: 12, bdeCap: 9 },
+  '24au': { label: '24 AU', coreCap: 12, bdeCap: 12 }
+};
 
 function moduleKey(module) {
   return module._id || `${module.code}-${module.academicYear}`;
@@ -90,7 +93,7 @@ function buildBestRemovalStates(candidates, capAu) {
     .filter(Boolean);
 }
 
-function optimiseFgo(modules, isDoubleDegree, selectedDegree) {
+function optimiseFgo(modules, isDoubleDegree, selectedDegree, coreCap, bdeCap) {
   const visibleModules = getFilteredModulesForDegree(modules, selectedDegree, isDoubleDegree);
   const gradedModules = visibleModules.filter(isCompletedGraded);
   const totalCredits = sumCredits(gradedModules);
@@ -152,15 +155,15 @@ function FgoPlannerPage() {
   const [modules, setModules] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const [savingModuleId, setSavingModuleId] = useState('');
   const [, setUser] = useState(null);
   const [isDoubleDegree, setIsDoubleDegree] = useState(false);
   const [degreeNames, setDegreeNames] = useState({ primary: 'Degree 1', secondary: 'Degree 2' });
   const [selectedDegree, setSelectedDegree] = useState('primary');
+  const [fgoScheme, setFgoScheme] = useState('24au');
+  const { coreCap, bdeCap } = fgoSchemes[fgoScheme];
 
   const loadModules = useCallback(async () => {
-    setLoading(true);
     setMessage('');
     setError('');
 
@@ -192,8 +195,6 @@ function FgoPlannerPage() {
       }
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }, [isGuest]);
 
@@ -206,8 +207,8 @@ function FgoPlannerPage() {
     [modules, selectedDegree, isDoubleDegree]
   );
   const plan = useMemo(
-    () => optimiseFgo(modules, isDoubleDegree, selectedDegree),
-    [modules, isDoubleDegree, selectedDegree]
+    () => optimiseFgo(modules, isDoubleDegree, selectedDegree, coreCap, bdeCap),
+    [modules, isDoubleDegree, selectedDegree, coreCap, bdeCap]
   );
   const selectedKeys = useMemo(() => new Set(plan.selectedModules.map(moduleKey)), [plan.selectedModules]);
   const completedGradedModules = useMemo(() => (
@@ -251,11 +252,23 @@ function FgoPlannerPage() {
         <header className="dashboard-header planner-header">
           <div>
             <h1>FGO Planner</h1>
-            <p>Optimise pass/fail choices under the 12 AU Core/MPE/ICC and 12 AU BDE limits.</p>
+            <p>Optimise pass/fail choices under the {coreCap} AU Core/MPE/ICC and {bdeCap} AU BDE limits.</p>
           </div>
-          <button className="btn-secondary" type="button" onClick={loadModules} disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <div className="fgo-scheme-toggle-row">
+            <span className="fgo-scheme-label">FGO quota</span>
+            <div className="fgo-scheme-segmented">
+              {Object.entries(fgoSchemes).map(([schemeKey, scheme]) => (
+                <button
+                  key={schemeKey}
+                  type="button"
+                  className={`fgo-scheme-segment ${fgoScheme === schemeKey ? 'active' : ''}`}
+                  onClick={() => setFgoScheme(schemeKey)}
+                >
+                  {scheme.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </header>
 
         {(message || error) && (
@@ -365,11 +378,11 @@ function FgoPlannerPage() {
               <tbody>
                 {completedGradedModules.map((module) => (
                   <tr key={moduleKey(module)}>
-                    <td>{module.code}</td>
-                    <td>{module.name}</td>
-                    <td>{module.credits}</td>
-                    <td><span className="grade-badge">{module.grade}</span></td>
-                    <td>
+                    <td data-label="Code"><span>{module.code}</span></td>
+                    <td data-label="Course Name"><span>{module.name}</span></td>
+                    <td data-label="Credits"><span>{module.credits}</span></td>
+                    <td data-label="Grade"><span className="grade-badge">{module.grade}</span></td>
+                    <td data-label="BDE">
                       <label className="table-checkbox">
                         <input
                           type="checkbox"
@@ -380,7 +393,7 @@ function FgoPlannerPage() {
                         <span>BDE</span>
                       </label>
                     </td>
-                    <td>
+                    <td data-label="Recommendation">
                       {selectedKeys.has(moduleKey(module)) ? (
                         <span className="fgo-selected-badge">FGO</span>
                       ) : (
