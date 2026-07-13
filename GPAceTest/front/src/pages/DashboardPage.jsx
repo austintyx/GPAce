@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '../pages/DashboardPage.css';
 import Sidebar from '../components/Sidebar';
 import {
@@ -64,6 +64,13 @@ const gradeRank = {
   EX: 13,
   '-': 14
 };
+const gradeTierMap = {
+  'A+': 'excellent', A: 'excellent', 'A-': 'excellent',
+  'B+': 'good', B: 'good', 'B-': 'good',
+  'C+': 'fair', C: 'fair',
+  'D+': 'poor', D: 'poor', F: 'poor', U: 'poor',
+  P: 'neutral', PASS: 'neutral', EX: 'neutral'
+};
 
 function getTabCourses(courses, tab) {
   if (tab === 'All Courses') return courses;
@@ -92,6 +99,16 @@ function moduleMatchesGpaBucket(gpaBucket, bucket) {
   if (bucket === 'primary') return ['primary', 'shared'].includes(normalizedBucket);
   if (bucket === 'secondary') return ['secondary', 'shared'].includes(normalizedBucket);
   return false;
+}
+
+function getGradeTier(grade) {
+  return gradeTierMap[String(grade || '').toUpperCase()] || 'unset';
+}
+
+function formatGpaDelta(current, target) {
+  const diff = Number((current - target).toFixed(2));
+  if (diff >= 0) return `+${diff.toFixed(2)} above your goal`;
+  return `${Math.abs(diff).toFixed(2)} below your goal`;
 }
 
 function buildRequiredAverageForGpa(courses, bucket, targetGPA) {
@@ -340,6 +357,82 @@ function calculateLocalSummaryBase(modules) {
   };
 }
 
+function GpaTrio({ title, badge, gpaValue, credits, target, onTargetChange, requiredPlan, selected, onSelect, goalSubtitle }) {
+  const pct = Math.min(100, Math.max(0, (gpaValue / 5) * 100));
+  const tickDeg = (Math.min(5, Math.max(0, target)) / 5) * 360;
+  const ringColor = !requiredPlan.possible
+    ? 'var(--color-danger)'
+    : gpaValue >= target
+      ? 'var(--color-success)'
+      : 'var(--color-primary)';
+
+  return (
+    <div className="gpa-trio">
+      <button
+        className={`stat-card stat-card-button gpa-hero ${selected ? 'selected' : ''}`}
+        type="button"
+        onClick={onSelect}
+      >
+        <div className="stat-header">
+          <span className="stat-label">{title}</span>
+          <span className="stat-icon">{badge}</span>
+        </div>
+        <div className="gpa-hero-body">
+          <div className="gpa-ring" style={{ '--pct': pct, '--ring-color': ringColor }}>
+            <div className="gpa-ring-tick-wrap" style={{ '--tick-deg': `${tickDeg}deg` }}>
+              <span className="gpa-ring-tick" title={`Goal ${target.toFixed(2)}`} />
+            </div>
+            <div className="gpa-ring-value">
+              <strong>{gpaValue.toFixed(2)}</strong>
+              <span>/ 5.00</span>
+            </div>
+          </div>
+          <div className="gpa-hero-text">
+            <div className="gpa-hero-credits">{credits} completed credits</div>
+            <div className={`gpa-hero-delta ${gpaValue >= target ? 'positive' : 'negative'}`}>
+              {formatGpaDelta(gpaValue, target)}
+            </div>
+          </div>
+        </div>
+      </button>
+
+      <div className="stat-card">
+        <div className="stat-header">
+          <span className="stat-label">Set goal</span>
+          <span className="stat-icon">Target</span>
+        </div>
+        <div className="stat-value">{target.toFixed(2)}</div>
+        <div className="stat-subtitle">{goalSubtitle}</div>
+        <input
+          type="range"
+          min="0"
+          max="5"
+          step="0.01"
+          value={target}
+          onChange={(event) => onTargetChange(parseFloat(event.target.value))}
+          className="gpa-slider"
+        />
+        <div className="slider-labels">
+          <span>0.0</span>
+          <span>5.0</span>
+        </div>
+      </div>
+
+      <div className={`stat-card ${!requiredPlan.possible ? 'alert' : ''}`}>
+        <div className="stat-header">
+          <span className="stat-label">Required average</span>
+          <span className="stat-icon">Future</span>
+        </div>
+        <div className="stat-value">{(requiredPlan.requiredAverageGradePoint || 0).toFixed(2)}</div>
+        <div className={`stat-subtitle ${!requiredPlan.possible ? 'alert-text' : ''}`}>
+          {requiredPlan.message}
+        </div>
+        <div className="remaining-credits">Remaining credits: {requiredPlan.futureCredits}</div>
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage() {
   const [user, setUser] = useState(getStoredUser);
   const [targetGPA, setTargetGPA] = useState(3.5);
@@ -349,6 +442,7 @@ function DashboardPage() {
   const [summary, setSummary] = useState({ gpa: 0, creditsAttempted: 0, creditsCompleted: 0 });
   const [plan, setPlan] = useState(null);
   const [activeTab, setActiveTab] = useState('All Courses');
+  const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('code');
   const [sortDirection, setSortDirection] = useState('asc');
   const [selectedGpaBucket, setSelectedGpaBucket] = useState('');
@@ -357,6 +451,9 @@ function DashboardPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedCurriculumFile, setSelectedCurriculumFile] = useState(null);
   const [selectedGpaMappingFile, setSelectedGpaMappingFile] = useState(null);
+  const [dragOverTranscript, setDragOverTranscript] = useState(false);
+  const [dragOverCurriculum, setDragOverCurriculum] = useState(false);
+  const [dragOverMapping, setDragOverMapping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingCurriculum, setUploadingCurriculum] = useState(false);
@@ -365,9 +462,11 @@ function DashboardPage() {
   const [editingModuleId, setEditingModuleId] = useState('');
   const [editableCell, setEditableCell] = useState(null);
   const [removingModuleId, setRemovingModuleId] = useState('');
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isGuest] = useState(isGuestSession);
+  const addModuleCodeInputRef = useRef(null);
 
   const loadDashboard = useCallback(async () => {
     if (isGuest) {
@@ -430,14 +529,29 @@ function DashboardPage() {
     if (courses.length > 0) refreshPlan();
   }, [refreshPlan, courses]);
 
+  useEffect(() => {
+    if (!message) return undefined;
+    const timer = setTimeout(() => setMessage(''), 4500);
+    return () => clearTimeout(timer);
+  }, [message]);
+
   const filteredCourses = useMemo(() => {
     return getTabCourses(courses, activeTab);
   }, [activeTab, courses]);
 
+  const searchFilteredCourses = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return filteredCourses;
+    return filteredCourses.filter((course) =>
+      String(course.code || '').toLowerCase().includes(query) ||
+      String(course.name || '').toLowerCase().includes(query)
+    );
+  }, [filteredCourses, searchQuery]);
+
   const sortedCourses = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1;
-    return [...filteredCourses].sort((a, b) => direction * compareCourses(a, b, sortBy));
-  }, [filteredCourses, sortBy, sortDirection]);
+    return [...searchFilteredCourses].sort((a, b) => direction * compareCourses(a, b, sortBy));
+  }, [searchFilteredCourses, sortBy, sortDirection]);
 
   const tabCredits = useMemo(() => {
     return tabOptions.reduce((totals, tab) => ({
@@ -691,7 +805,7 @@ function DashboardPage() {
         ? `status-badge ${String(value).toLowerCase().replace(/\s+/g, '-')}`
         : field === 'gpaBucket'
           ? `gpa-bucket-select ${className}`
-          : `grade-badge ${className}`;
+          : `grade-badge grade-tier-${getGradeTier(value)} ${className}`;
       return (
         <span
           className={`editable-cell ${displayClass}`}
@@ -705,7 +819,7 @@ function DashboardPage() {
 
     return (
       <select
-        className={`table-select ${className}`}
+        className={`table-select ${className} ${field === 'grade' ? `grade-tier-${getGradeTier(value)}` : ''}`}
         autoFocus
         value={value}
         disabled={editingModuleId === (course._id || course.code)}
@@ -746,7 +860,7 @@ function DashboardPage() {
 
     return (
       <select
-        className={`table-select ${className}`}
+        className={`table-select ${className} ${field === 'grade' ? `grade-tier-${getGradeTier(value)}` : ''}`}
         value={value}
         disabled={editingModuleId === (course._id || course.code)}
         onChange={(event) => handleModuleFieldChange(course, field, event.target.value)}
@@ -804,12 +918,13 @@ function DashboardPage() {
     }
   };
 
-  const handleClearModules = async () => {
+  const openClearConfirm = () => {
     if (courses.length === 0) return;
+    setConfirmClearOpen(true);
+  };
 
-    const confirmed = window.confirm('Clear all modules? This cannot be undone.');
-    if (!confirmed) return;
-
+  const handleConfirmClearModules = async () => {
+    setConfirmClearOpen(false);
     setMessage('');
     setError('');
 
@@ -836,6 +951,28 @@ function DashboardPage() {
       setLoading(false);
     }
   };
+
+  const handleFocusAddModule = () => {
+    addModuleCodeInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    addModuleCodeInputRef.current?.focus();
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setActiveTab('All Courses');
+  };
+
+  const buildDropHandlers = (setFile, setDragActive) => ({
+    onDragOver: (event) => { event.preventDefault(); setDragActive(true); },
+    onDragEnter: (event) => { event.preventDefault(); setDragActive(true); },
+    onDragLeave: () => setDragActive(false),
+    onDrop: (event) => {
+      event.preventDefault();
+      setDragActive(false);
+      const file = event.dataTransfer.files?.[0];
+      if (file) setFile(file);
+    }
+  });
 
   const currentGPA = Number(summary.gpa || 0);
   const doubleDegree = Boolean(user?.isDoubleDegree || summary.doubleDegree);
@@ -890,19 +1027,32 @@ function DashboardPage() {
       <main className="main-content">
         <header className="dashboard-header">
           <div>
-            <h1>Academic Dashboard</h1>
+            <span className="page-eyebrow">Academic overview</span>
+            <div className="dashboard-title-row">
+              <h1>Academic Dashboard</h1>
+              {isGuest && <span className="guest-pill">Guest session — changes stay on this device</span>}
+            </div>
             <p>Track completed modules, import transcripts, and plan the grades needed for your goal GPA.</p>
           </div>
         </header>
 
         {(message || error) && (
-          <div className={error ? 'notice error' : 'notice success'}>
-            {error || message}
+          <div className={`toast ${error ? 'toast-error' : 'toast-success'}`} role="status">
+            <span className="toast-icon" aria-hidden="true">{error ? '!' : '✓'}</span>
+            <span className="toast-text">{error || message}</span>
+            <button
+              className="toast-dismiss"
+              type="button"
+              aria-label="Dismiss notification"
+              onClick={() => (error ? setError('') : setMessage(''))}
+            >
+              &times;
+            </button>
           </div>
         )}
 
         {doubleDegree ? (
-          <div className="stats-grid summary-grid double-degree-grid">
+          <div className="gpa-trio-stack">
             {['primary', 'secondary'].map((bucket) => {
               const name = bucket === 'primary' ? degreeNames.primary : degreeNames.secondary;
               const current = Number(summary.buckets?.[bucket]?.gpa || 0);
@@ -912,110 +1062,40 @@ function DashboardPage() {
               const requiredPlan = bucket === 'primary' ? primaryRequiredPlan : secondaryRequiredPlan;
 
               return (
-                <React.Fragment key={bucket}>
-                  <button
-                    className={`stat-card stat-card-button ${selectedGpaBucket === bucket ? 'selected' : ''}`}
-                    type="button"
-                    onClick={() => setSelectedGpaBucket((current) => current === bucket ? '' : bucket)}
-                  >
-                    <div className="stat-header">
-                      <span className="stat-label">{name} GPA</span>
-                      <span className="stat-icon">Degree {bucket === 'primary' ? '1' : '2'}</span>
-                    </div>
-                    <div className="stat-value">{current.toFixed(2)}</div>
-                    <div className="stat-subtitle">Based on {credits} total completed credits</div>
-                  </button>
-
-                  <div className="stat-card">
-                    <div className="stat-header">
-                      <span className="stat-label">SET GOAL</span>
-                      <span className="stat-icon">Target</span>
-                    </div>
-                    <div className="stat-value">{target.toFixed(2)}</div>
-                    <div className="stat-subtitle">Desired cumulative GPA for {name}</div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="5"
-                      step="0.01"
-                      value={target}
-                      onChange={(event) => setTarget(parseFloat(event.target.value))}
-                      className="gpa-slider"
-                    />
-                    <div className="slider-labels">
-                      <span>0.0</span>
-                      <span>5.0</span>
-                    </div>
-                  </div>
-
-                  <div className={`stat-card ${!requiredPlan.possible ? 'alert' : ''}`}>
-                    <div className="stat-header">
-                      <span className="stat-label">{name} REQUIRED</span>
-                      <span className="stat-icon">Degree {bucket === 'primary' ? '1' : '2'}</span>
-                    </div>
-                    <div className="stat-value">{(requiredPlan.requiredAverageGradePoint || 0).toFixed(2)}</div>
-                    <div className={`stat-subtitle ${!requiredPlan.possible ? 'alert-text' : ''}`}>
-                      {requiredPlan.message}
-                    </div>
-                    <div className="remaining-credits">
-                      Remaining Credits: {requiredPlan.futureCredits}
-                    </div>
-                  </div>
-                </React.Fragment>
+                <section className="degree-group" key={bucket}>
+                  <header className="degree-group-header">
+                    <h2>{name}</h2>
+                    <span className="degree-group-tag">Degree {bucket === 'primary' ? '1' : '2'}</span>
+                  </header>
+                  <GpaTrio
+                    title={`${name} GPA`}
+                    badge={`Degree ${bucket === 'primary' ? '1' : '2'}`}
+                    gpaValue={current}
+                    credits={credits}
+                    target={target}
+                    onTargetChange={setTarget}
+                    requiredPlan={requiredPlan}
+                    selected={selectedGpaBucket === bucket}
+                    onSelect={() => setSelectedGpaBucket((current) => current === bucket ? '' : bucket)}
+                    goalSubtitle={`Desired cumulative GPA for ${name}`}
+                  />
+                </section>
               );
             })}
           </div>
         ) : (
-          <div className="stats-grid summary-grid">
-            <button
-              className={`stat-card stat-card-button ${selectedGpaBucket === activeSummaryBucket ? 'selected' : ''}`}
-              type="button"
-              onClick={() => setSelectedGpaBucket((current) => current === activeSummaryBucket ? '' : activeSummaryBucket)}
-            >
-              <div className="stat-header">
-                <span className="stat-label">CURRENT GPA</span>
-                <span className="stat-icon">{isGuest ? 'Guest' : '5.0 scale'}</span>
-              </div>
-              <div className="stat-value">{currentSummaryGpa.toFixed(2)}</div>
-              <div className="stat-subtitle">Based on {currentSummaryCredits} total completed credits</div>
-            </button>
-
-            <div className="stat-card">
-              <div className="stat-header">
-                <span className="stat-label">SET GOAL</span>
-                <span className="stat-icon">Target</span>
-              </div>
-              <div className="stat-value">{targetGPA.toFixed(2)}</div>
-              <div className="stat-subtitle">Desired cumulative GPA</div>
-              <input
-                type="range"
-                min="0"
-                max="5"
-                step="0.01"
-                value={targetGPA}
-                onChange={(event) => setTargetGPA(parseFloat(event.target.value))}
-                className="gpa-slider"
-              />
-              <div className="slider-labels">
-                <span>0.0</span>
-                <span>5.0</span>
-              </div>
-            </div>
-
-            <div className={`stat-card ${!summaryRequiredPlan.possible ? 'alert' : ''}`}>
-              <div className="stat-header">
-                <span className="stat-label">REQUIRED AVERAGE</span>
-                <span className="stat-icon">Future</span>
-              </div>
-              <div className="stat-value">{summaryRequiredPlan.requiredAverageGradePoint.toFixed(2)}</div>
-              <div className={`stat-subtitle ${!summaryRequiredPlan.possible ? 'alert-text' : ''}`}>
-                {summaryRequiredPlan.message}
-              </div>
-              <div className="remaining-credits">
-                Remaining Credits: {summaryRequiredPlan.futureCredits}
-              </div>
-            </div>
-          </div>
+          <GpaTrio
+            title="Current GPA"
+            badge={isGuest ? 'Guest' : '5.0 scale'}
+            gpaValue={currentSummaryGpa}
+            credits={currentSummaryCredits}
+            target={targetGPA}
+            onTargetChange={setTargetGPA}
+            requiredPlan={summaryRequiredPlan}
+            selected={selectedGpaBucket === activeSummaryBucket}
+            onSelect={() => setSelectedGpaBucket((current) => current === activeSummaryBucket ? '' : activeSummaryBucket)}
+            goalSubtitle="Desired cumulative GPA"
+          />
         )}
 
         {selectedGpaMeta && (
@@ -1045,14 +1125,14 @@ function DashboardPage() {
                 <tbody>
                   {selectedGpaCourses.map((course) => (
                     <tr key={`gpa-${selectedGpaBucket}-${course._id || `${course.code}-${course.academicYear}`}`}>
-                      <td>{renderInlineTextInput(course, 'code', 'code-input')}</td>
-                      <td>{renderInlineTextInput(course, 'name', 'name-input')}</td>
-                      <td>{renderInlineTextInput(course, 'credits', 'credits-input')}</td>
-                      <td>{renderBdeCheckbox(course)}</td>
-                      <td>{renderInlineSelect(course, 'grade', gradeOptions, 'grade-select')}</td>
-                      <td>{renderInlineSelect(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
+                      <td data-label="Code">{renderInlineTextInput(course, 'code', 'code-input')}</td>
+                      <td data-label="Course Name">{renderInlineTextInput(course, 'name', 'name-input')}</td>
+                      <td data-label="Credits">{renderInlineTextInput(course, 'credits', 'credits-input')}</td>
+                      <td data-label="BDE">{renderBdeCheckbox(course)}</td>
+                      <td data-label="Grade">{renderInlineSelect(course, 'grade', gradeOptions, 'grade-select')}</td>
+                      <td data-label="Status">{renderInlineSelect(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
                       {doubleDegree && (
-                        <td>{renderInlineSelect(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
+                        <td data-label="GPA Category">{renderInlineSelect(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
                       )}
                     </tr>
                   ))}
@@ -1077,7 +1157,7 @@ function DashboardPage() {
                 <button className="btn-secondary" type="button" onClick={loadDashboard} disabled={loading}>
                   {loading ? 'Refreshing...' : isGuest ? 'Reload Local' : 'Refresh'}
                 </button>
-                <button className="btn-danger" type="button" onClick={handleClearModules} disabled={loading || courses.length === 0}>
+                <button className="btn-danger" type="button" onClick={openClearConfirm} disabled={loading || courses.length === 0}>
                   Clear All
                 </button>
               </div>
@@ -1098,6 +1178,25 @@ function DashboardPage() {
             </div>
 
             <div className="table-toolbar">
+              <label className="search-control">
+                <span className="search-icon" aria-hidden="true">&#8981;</span>
+                <input
+                  type="text"
+                  placeholder="Search by code or name"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="search-clear"
+                    aria-label="Clear search"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    &times;
+                  </button>
+                )}
+              </label>
               <label className="sort-control">
                 Sort by
                 <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
@@ -1134,16 +1233,16 @@ function DashboardPage() {
                 <tbody>
                   {sortedCourses.map((course) => (
                     <tr key={course._id || `${course.code}-${course.academicYear}`}>
-                      <td>{renderEditableTextCell(course, 'code', 'code-input')}</td>
-                      <td>{renderEditableTextCell(course, 'name', 'name-input')}</td>
-                      <td>{renderEditableTextCell(course, 'credits', 'credits-input')}</td>
-                      <td>{renderBdeCheckbox(course)}</td>
-                      <td>{renderEditableSelectCell(course, 'grade', gradeOptions, 'grade-select')}</td>
-                      <td>{renderEditableSelectCell(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
+                      <td data-label="Code">{renderEditableTextCell(course, 'code', 'code-input')}</td>
+                      <td data-label="Course Name">{renderEditableTextCell(course, 'name', 'name-input')}</td>
+                      <td data-label="Credits">{renderEditableTextCell(course, 'credits', 'credits-input')}</td>
+                      <td data-label="BDE">{renderBdeCheckbox(course)}</td>
+                      <td data-label="Grade">{renderEditableSelectCell(course, 'grade', gradeOptions, 'grade-select')}</td>
+                      <td data-label="Status">{renderEditableSelectCell(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
                       {doubleDegree && (
-                        <td>{renderEditableSelectCell(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
+                        <td data-label="GPA">{renderEditableSelectCell(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
                       )}
-                      <td>
+                      <td data-label="Actions">
                         <button
                           className="row-delete-button"
                           type="button"
@@ -1157,7 +1256,25 @@ function DashboardPage() {
                   ))}
                   {sortedCourses.length === 0 && (
                     <tr>
-                      <td colSpan={doubleDegree ? '8' : '7'} className="empty-table">No modules yet.</td>
+                      <td colSpan={doubleDegree ? '8' : '7'} className="empty-table">
+                        {courses.length === 0 ? (
+                          <div className="empty-state">
+                            <p>No modules yet.</p>
+                            <span>Import a transcript or add your first module to get started.</span>
+                            <button type="button" className="btn-primary" onClick={handleFocusAddModule}>
+                              Add your first module
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="empty-state">
+                            <p>No modules match this view.</p>
+                            <span>Try a different search term or switch tabs.</span>
+                            <button type="button" className="btn-secondary" onClick={handleClearFilters}>
+                              Clear filters
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -1169,13 +1286,16 @@ function DashboardPage() {
             <section className="side-panel">
               <h3>Import Transcript</h3>
               <form className="upload-box" onSubmit={handleTranscriptUpload}>
-              <label className="file-picker">
+              <label
+                className={`file-picker ${dragOverTranscript ? 'drag-active' : ''}`}
+                {...buildDropHandlers(setSelectedFile, setDragOverTranscript)}
+              >
                 <input
                   type="file"
                   accept="application/pdf,text/plain,.pdf,.txt"
                   onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
                 />
-                <span>{selectedFile ? selectedFile.name : 'Choose PDF transcript'}</span>
+                <span>{selectedFile ? selectedFile.name : 'Choose or drop a PDF transcript'}</span>
               </label>
               <button className="btn-primary" type="submit" disabled={uploading || isGuest}>
                 {uploading ? 'Importing...' : isGuest ? 'Log in to Import' : 'Import Transcript'}
@@ -1186,13 +1306,16 @@ function DashboardPage() {
             <section className="side-panel">
               <h3>Import Curriculum Structure</h3>
               <form className="upload-box" onSubmit={handleCurriculumUpload}>
-                <label className="file-picker">
+                <label
+                  className={`file-picker ${dragOverCurriculum ? 'drag-active' : ''}`}
+                  {...buildDropHandlers(setSelectedCurriculumFile, setDragOverCurriculum)}
+                >
                   <input
                     type="file"
                     accept="application/pdf,text/plain,.pdf,.txt"
                     onChange={(event) => setSelectedCurriculumFile(event.target.files?.[0] || null)}
                   />
-                  <span>{selectedCurriculumFile ? selectedCurriculumFile.name : 'Choose curriculum PDF'}</span>
+                  <span>{selectedCurriculumFile ? selectedCurriculumFile.name : 'Choose or drop a curriculum PDF'}</span>
                 </label>
                 <button className="btn-primary" type="submit" disabled={uploadingCurriculum || isGuest}>
                   {uploadingCurriculum ? 'Importing...' : isGuest ? 'Log in to Import' : 'Import Curriculum'}
@@ -1208,13 +1331,16 @@ function DashboardPage() {
                   {mappingBusy ? 'Working...' : 'Predict GPA Categories'}
                 </button>
                 <form className="upload-box" onSubmit={handleGpaMappingUpload}>
-                  <label className="file-picker">
+                  <label
+                    className={`file-picker ${dragOverMapping ? 'drag-active' : ''}`}
+                    {...buildDropHandlers(setSelectedGpaMappingFile, setDragOverMapping)}
+                  >
                     <input
                       type="file"
                       accept="application/pdf,text/plain,.pdf,.txt"
                       onChange={(event) => setSelectedGpaMappingFile(event.target.files?.[0] || null)}
                     />
-                    <span>{selectedGpaMappingFile ? selectedGpaMappingFile.name : 'Choose GPA mapping document'}</span>
+                    <span>{selectedGpaMappingFile ? selectedGpaMappingFile.name : 'Choose or drop a GPA mapping document'}</span>
                   </label>
                   <button className="btn-primary" type="submit" disabled={mappingBusy || isGuest}>
                     {mappingBusy ? 'Applying...' : 'Apply Mapping'}
@@ -1226,7 +1352,7 @@ function DashboardPage() {
             <section className="side-panel">
               <h3>Add Future Module</h3>
               <form className="module-form" onSubmit={handleAddModule}>
-              <input className="form-input" placeholder="Code" value={newModule.code} onChange={(event) => setNewModule({ ...newModule, code: event.target.value })} />
+              <input ref={addModuleCodeInputRef} className="form-input" placeholder="Code" value={newModule.code} onChange={(event) => setNewModule({ ...newModule, code: event.target.value })} />
               <input className="form-input" placeholder="Module name" value={newModule.name} onChange={(event) => setNewModule({ ...newModule, name: event.target.value })} />
               <input className="form-input" type="number" min="0.5" step="0.5" placeholder="Credits" value={newModule.credits} onChange={(event) => setNewModule({ ...newModule, credits: Number(event.target.value) })} />
               <label className="form-checkbox">
@@ -1300,6 +1426,25 @@ function DashboardPage() {
           </aside>
         </div>
       </main>
+
+      {confirmClearOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setConfirmClearOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <h3>Clear all modules?</h3>
+            <p>
+              This removes all {courses.length} module{courses.length === 1 ? '' : 's'} {isGuest ? 'from this guest session' : 'from your account'}. This can&rsquo;t be undone.
+            </p>
+            <div className="modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setConfirmClearOpen(false)}>
+                Cancel
+              </button>
+              <button className="btn-danger" type="button" onClick={handleConfirmClearModules} disabled={loading}>
+                {loading ? 'Clearing...' : 'Clear all'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

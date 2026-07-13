@@ -60,11 +60,11 @@ export default function Sidebar() {
           <div className="profile-name">{displayName}</div>
           <Link className="profile-link" to="/profile" onClick={() => setMobileOpen(false)}>View Profile</Link>
         </div>
+        <button className="logout-button" type="button" onClick={handleLogout}>
+          <LogoutIcon width={16} height={16} />
+          <span>Log out</span>
+        </button>
       </div>
-      <button className="logout-button" type="button" onClick={handleLogout}>
-        <LogoutIcon width={16} height={16} />
-        <span>Log out</span>
-      </button>
     </header>
   );
 }
