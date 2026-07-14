@@ -325,6 +325,20 @@ function compareCourses(a, b, sortBy) {
   });
 }
 
+function sortSemesterLabels(labels) {
+  return [...labels].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+function groupCoursesBySemester(courses) {
+  const groups = new Map();
+  courses.forEach((course) => {
+    const label = course.academicYear || 'Unscheduled';
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(course);
+  });
+  return sortSemesterLabels([...groups.keys()]).map((label) => ({ label, courses: groups.get(label) }));
+}
+
 function calculateLocalSummary(modules) {
   const counted = modules
     .filter((module) => module.status === 'Completed' && gradePoints[module.grade] !== undefined)
@@ -458,12 +472,14 @@ function DashboardPage() {
   const [summary, setSummary] = useState({ gpa: 0, creditsAttempted: 0, creditsCompleted: 0 });
   const [plan, setPlan] = useState(null);
   const [activeTab, setActiveTab] = useState('All Courses');
+  const [moduleView, setModuleView] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('code');
   const [sortDirection, setSortDirection] = useState('asc');
   const [selectedGpaBucket, setSelectedGpaBucket] = useState('');
   const [gradePlanBucket, setGradePlanBucket] = useState('overall');
   const [newModule, setNewModule] = useState(emptyModule);
+  const [addModuleOpen, setAddModuleOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedCurriculumFile, setSelectedCurriculumFile] = useState(null);
   const [selectedGpaMappingFile, setSelectedGpaMappingFile] = useState(null);
@@ -554,6 +570,12 @@ function DashboardPage() {
   }, [editableCell, loadDashboard]);
 
   useEffect(() => {
+    if (addModuleOpen) {
+      addModuleCodeInputRef.current?.focus();
+    }
+  }, [addModuleOpen]);
+
+  useEffect(() => {
     if (!message) return undefined;
     const timer = setTimeout(() => setMessage(''), 4500);
     return () => clearTimeout(timer);
@@ -576,6 +598,8 @@ function DashboardPage() {
     const direction = sortDirection === 'asc' ? 1 : -1;
     return [...searchFilteredCourses].sort((a, b) => direction * compareCourses(a, b, sortBy));
   }, [searchFilteredCourses, sortBy, sortDirection]);
+
+  const semesterGroups = useMemo(() => groupCoursesBySemester(sortedCourses), [sortedCourses]);
 
   const tabCredits = useMemo(() => {
     return tabOptions.reduce((totals, tab) => ({
@@ -676,8 +700,7 @@ function DashboardPage() {
     }
   };
 
-  const handleAddModule = async (event) => {
-    event.preventDefault();
+  const handleAddModule = async () => {
     setSavingModule(true);
     setMessage('');
     setError('');
@@ -694,12 +717,14 @@ function DashboardPage() {
         setCourses(nextCourses);
         setSummary(calculateLocalSummary(nextCourses));
         setNewModule({ ...emptyModule, academicYear: newModule.academicYear });
+        setAddModuleOpen(false);
         setMessage('Module saved locally for this guest session.');
         return;
       }
 
       await addAcademicModule(newModule);
       setNewModule({ ...emptyModule, academicYear: newModule.academicYear });
+      setAddModuleOpen(false);
       setMessage('Module saved.');
       await loadDashboard();
     } catch (err) {
@@ -917,6 +942,69 @@ function DashboardPage() {
     );
   };
 
+  const renderTableHead = () => (
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Course Name</th>
+        <th>Credits</th>
+        <th>BDE</th>
+        <th>Grade</th>
+        <th>Status</th>
+        {doubleDegree && <th>GPA</th>}
+        <th>Actions</th>
+      </tr>
+    </thead>
+  );
+
+  const renderCourseRow = (course) => (
+    <tr key={course._id || `${course.code}-${course.academicYear}`}>
+      <td data-label="Code">{renderEditableTextCell(course, 'code', 'code-input')}</td>
+      <td data-label="Course Name">{renderEditableTextCell(course, 'name', 'name-input')}</td>
+      <td data-label="Credits">{renderEditableTextCell(course, 'credits', 'credits-input')}</td>
+      <td data-label="BDE">{renderBdeCheckbox(course)}</td>
+      <td data-label="Grade">{renderEditableSelectCell(course, 'grade', gradeOptions, 'grade-select')}</td>
+      <td data-label="Status">{renderEditableSelectCell(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
+      {doubleDegree && (
+        <td data-label="GPA">{renderEditableSelectCell(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
+      )}
+      <td data-label="Actions">
+        <button
+          className="row-delete-button"
+          type="button"
+          disabled={removingModuleId === (course._id || `${course.code}-${course.academicYear}`)}
+          onClick={() => handleRemoveModule(course)}
+        >
+          {removingModuleId === (course._id || `${course.code}-${course.academicYear}`) ? 'Removing...' : 'Remove'}
+        </button>
+      </td>
+    </tr>
+  );
+
+  const renderEmptyModulesRow = () => (
+    <tr>
+      <td colSpan={doubleDegree ? '8' : '7'} className="empty-table">
+        {courses.length === 0 ? (
+          <div className="empty-state">
+            <p>No modules yet.</p>
+            <span>Import a transcript or add your first module to get started.</span>
+            <button type="button" className="btn-primary" onClick={handleFocusAddModule}>
+              Add your first module
+            </button>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <p>No modules match this view.</p>
+            <span>Try a different search term or switch tabs.</span>
+            <button type="button" className="btn-secondary" onClick={handleClearFilters}>
+              Clear filters
+            </button>
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+
   const handleRemoveModule = async (course) => {
     const courseKey = course._id || `${course.code}-${course.academicYear}`;
     const nextCourses = courses.filter((item) =>
@@ -982,8 +1070,12 @@ function DashboardPage() {
   };
 
   const handleFocusAddModule = () => {
-    addModuleCodeInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    addModuleCodeInputRef.current?.focus();
+    setAddModuleOpen(true);
+  };
+
+  const handleCancelAddModule = () => {
+    setAddModuleOpen(false);
+    setNewModule({ ...emptyModule, academicYear: newModule.academicYear });
   };
 
   const handleClearFilters = () => {
@@ -1183,10 +1275,30 @@ function DashboardPage() {
             <div className="section-header">
               <h2>Modules & Courses</h2>
               <div className="section-actions">
+                <button className="btn-primary" type="button" onClick={() => setAddModuleOpen(true)}>
+                  + Add Module
+                </button>
                 <button className="btn-danger" type="button" onClick={openClearConfirm} disabled={loading || courses.length === 0}>
                   Clear All
                 </button>
               </div>
+            </div>
+
+            <div className="view-toggle">
+              <button
+                type="button"
+                className={`view-toggle-option ${moduleView === 'all' ? 'active' : ''}`}
+                onClick={() => setModuleView('all')}
+              >
+                All Modules
+              </button>
+              <button
+                type="button"
+                className={`view-toggle-option ${moduleView === 'semester' ? 'active' : ''}`}
+                onClick={() => setModuleView('semester')}
+              >
+                Modules by Semester
+              </button>
             </div>
 
             <div className="tabs">
@@ -1242,70 +1354,45 @@ function DashboardPage() {
               </button>
             </div>
 
-            <div className="table-wrap">
-              <table className="courses-table">
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Course Name</th>
-                    <th>Credits</th>
-                    <th>BDE</th>
-                    <th>Grade</th>
-                    <th>Status</th>
-                    {doubleDegree && <th>GPA</th>}
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedCourses.map((course) => (
-                    <tr key={course._id || `${course.code}-${course.academicYear}`}>
-                      <td data-label="Code">{renderEditableTextCell(course, 'code', 'code-input')}</td>
-                      <td data-label="Course Name">{renderEditableTextCell(course, 'name', 'name-input')}</td>
-                      <td data-label="Credits">{renderEditableTextCell(course, 'credits', 'credits-input')}</td>
-                      <td data-label="BDE">{renderBdeCheckbox(course)}</td>
-                      <td data-label="Grade">{renderEditableSelectCell(course, 'grade', gradeOptions, 'grade-select')}</td>
-                      <td data-label="Status">{renderEditableSelectCell(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
-                      {doubleDegree && (
-                        <td data-label="GPA">{renderEditableSelectCell(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
-                      )}
-                      <td data-label="Actions">
-                        <button
-                          className="row-delete-button"
-                          type="button"
-                          disabled={removingModuleId === (course._id || `${course.code}-${course.academicYear}`)}
-                          onClick={() => handleRemoveModule(course)}
-                        >
-                          {removingModuleId === (course._id || `${course.code}-${course.academicYear}`) ? 'Removing...' : 'Remove'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {sortedCourses.length === 0 && (
-                    <tr>
-                      <td colSpan={doubleDegree ? '8' : '7'} className="empty-table">
-                        {courses.length === 0 ? (
-                          <div className="empty-state">
-                            <p>No modules yet.</p>
-                            <span>Import a transcript or add your first module to get started.</span>
-                            <button type="button" className="btn-primary" onClick={handleFocusAddModule}>
-                              Add your first module
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="empty-state">
-                            <p>No modules match this view.</p>
-                            <span>Try a different search term or switch tabs.</span>
-                            <button type="button" className="btn-secondary" onClick={handleClearFilters}>
-                              Clear filters
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {moduleView === 'all' ? (
+              <div className="table-wrap">
+                <table className="courses-table">
+                  {renderTableHead()}
+                  <tbody>
+                    {sortedCourses.map(renderCourseRow)}
+                    {sortedCourses.length === 0 && renderEmptyModulesRow()}
+                  </tbody>
+                </table>
+              </div>
+            ) : semesterGroups.length === 0 ? (
+              <div className="table-wrap">
+                <table className="courses-table">
+                  {renderTableHead()}
+                  <tbody>{renderEmptyModulesRow()}</tbody>
+                </table>
+              </div>
+            ) : (
+              semesterGroups.map(({ label, courses: semesterCourses }) => {
+                const semesterSummary = calculateLocalSummaryBase(semesterCourses);
+                return (
+                  <section className="semester-block" key={label}>
+                    <div className="semester-block-header">
+                      <h3>{label}</h3>
+                      <div className="semester-block-stats">
+                        <span>{semesterSummary.creditsAttempted} AU earned</span>
+                        <span>GPA: <strong>{semesterSummary.gpa.toFixed(2)}</strong></span>
+                      </div>
+                    </div>
+                    <div className="table-wrap">
+                      <table className="courses-table">
+                        {renderTableHead()}
+                        <tbody>{semesterCourses.map(renderCourseRow)}</tbody>
+                      </table>
+                    </div>
+                  </section>
+                );
+              })
+            )}
           </section>
 
           <aside className="side-stack">
@@ -1375,45 +1462,6 @@ function DashboardPage() {
               </section>
             )}
 
-            <section className="side-panel">
-              <h3>Add Future Module</h3>
-              <form className="module-form" onSubmit={handleAddModule}>
-              <input ref={addModuleCodeInputRef} className="form-input" placeholder="Code" value={newModule.code} onChange={(event) => setNewModule({ ...newModule, code: event.target.value })} />
-              <input className="form-input" placeholder="Module name" value={newModule.name} onChange={(event) => setNewModule({ ...newModule, name: event.target.value })} />
-              <input className="form-input" type="number" min="0.5" step="0.5" placeholder="Credits" value={newModule.credits} onChange={(event) => setNewModule({ ...newModule, credits: Number(event.target.value) })} />
-              <label className="form-checkbox">
-                <input
-                  type="checkbox"
-                  checked={newModule.isBde}
-                  onChange={(event) => setNewModule({ ...newModule, isBde: event.target.checked })}
-                />
-                <span>BDE module</span>
-              </label>
-              {doubleDegree && (
-                <select className="form-input" value={newModule.gpaBucket} onChange={(event) => setNewModule({ ...newModule, gpaBucket: event.target.value })}>
-                  {gpaBucketOptions.map((bucket) => (
-                    <option key={bucket} value={bucket}>{bucket}</option>
-                  ))}
-                </select>
-              )}
-                <select className="form-input" value={newModule.status} onChange={(event) => setNewModule({ ...newModule, status: event.target.value, grade: event.target.value === 'Completed' ? newModule.grade : '-' })}>
-                {statusOptions.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-              {newModule.status === 'Completed' && (
-                <select className="form-input" value={newModule.grade} onChange={(event) => setNewModule({ ...newModule, grade: event.target.value })}>
-                  {gradeOptions.filter((grade) => grade !== '-').map((grade) => (
-                    <option key={grade}>{grade}</option>
-                  ))}
-                </select>
-              )}
-              <button className="btn-primary" type="submit" disabled={savingModule}>
-                {savingModule ? 'Saving...' : 'Save Module'}
-              </button>
-              </form>
-            </section>
-
             <section className="side-panel plan-panel">
               <h3>Grade Plan Permutations</h3>
               {doubleDegree && (
@@ -1452,6 +1500,77 @@ function DashboardPage() {
           </aside>
         </div>
       </main>
+
+      {addModuleOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={handleCancelAddModule}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <h3>Add Future Module</h3>
+            <form className="module-form" onSubmit={(event) => { event.preventDefault(); handleAddModule(); }}>
+              <input
+                ref={addModuleCodeInputRef}
+                className="form-input"
+                placeholder="Code"
+                value={newModule.code}
+                onChange={(event) => setNewModule({ ...newModule, code: event.target.value })}
+              />
+              <input
+                className="form-input"
+                placeholder="Module name"
+                value={newModule.name}
+                onChange={(event) => setNewModule({ ...newModule, name: event.target.value })}
+              />
+              <input
+                className="form-input"
+                type="number"
+                min="0.5"
+                step="0.5"
+                placeholder="Credits"
+                value={newModule.credits}
+                onChange={(event) => setNewModule({ ...newModule, credits: Number(event.target.value) })}
+              />
+              <label className="form-checkbox">
+                <input
+                  type="checkbox"
+                  checked={newModule.isBde}
+                  onChange={(event) => setNewModule({ ...newModule, isBde: event.target.checked })}
+                />
+                <span>BDE module</span>
+              </label>
+              {doubleDegree && (
+                <select className="form-input" value={newModule.gpaBucket} onChange={(event) => setNewModule({ ...newModule, gpaBucket: event.target.value })}>
+                  {gpaBucketOptions.map((bucket) => (
+                    <option key={bucket} value={bucket}>{bucket}</option>
+                  ))}
+                </select>
+              )}
+              <select
+                className="form-input"
+                value={newModule.status}
+                onChange={(event) => setNewModule({ ...newModule, status: event.target.value, grade: event.target.value === 'Completed' ? newModule.grade : '-' })}
+              >
+                {statusOptions.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+              {newModule.status === 'Completed' && (
+                <select className="form-input" value={newModule.grade} onChange={(event) => setNewModule({ ...newModule, grade: event.target.value })}>
+                  {gradeOptions.filter((grade) => grade !== '-').map((grade) => (
+                    <option key={grade}>{grade}</option>
+                  ))}
+                </select>
+              )}
+            </form>
+            <div className="modal-actions">
+              <button className="btn-secondary" type="button" onClick={handleCancelAddModule}>
+                Cancel
+              </button>
+              <button className="btn-primary" type="button" disabled={savingModule || !newModule.code.trim()} onClick={handleAddModule}>
+                {savingModule ? 'Saving...' : 'Add Module'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmClearOpen && (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setConfirmClearOpen(false)}>
