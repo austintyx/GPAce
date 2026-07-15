@@ -239,42 +239,18 @@
     margin-top: 6px;
 }
 
-.btn-primary,
-.btn-secondary {
+.login-row .btn-primary,
+.login-row .btn-secondary {
     flex: 1;
     padding: 12px 14px;
-}
-
-.btn-secondary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
 }
 
 .login-guest-btn {
     margin-top: 14px;
 }
 
-.btn-ghost {
+.login-guest-btn .btn-ghost {
     width: 100%;
-    background: transparent;
-    color: var(--color-ink-soft);
-    border: 1.5px solid var(--color-border);
-    padding: 11px 14px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
-    transition: background 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
-}
-
-.btn-ghost:hover:not(:disabled) {
-    background: var(--color-bg);
-    border-color: var(--color-border-strong);
-}
-
-.btn-ghost:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
 }
 
 .login-error {

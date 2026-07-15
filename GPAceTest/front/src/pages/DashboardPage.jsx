@@ -14,6 +14,7 @@ import {
   uploadTranscript
 } from '../services/academicApi';
 import { getStoredUser, isGuestSession } from '../services/session';
+import { optimiseFgo, moduleKey, fgoSchemes } from '../utils/fgoOptimizer';
 
 const emptyModule = {
   academicYear: '',
@@ -133,10 +134,11 @@ function formatGpaDelta(current, target) {
   return `${Math.abs(diff).toFixed(2)} below your goal`;
 }
 
-function buildRequiredAverageForGpa(courses, bucket, targetGPA) {
+function buildRequiredAverageForGpa(courses, bucket, targetGPA, excludedKeys = new Set()) {
   const bucketCourses = courses.filter((course) => moduleMatchesGpaBucket(course.gpaBucket, bucket));
   const completed = bucketCourses
     .filter((course) => course.status === 'Completed' && gradePoints[String(course.grade || '').toUpperCase()] !== undefined)
+    .filter((course) => !excludedKeys.has(moduleKey(course)))
     .map((course) => ({
       ...course,
       credits: Number(course.credits || 0),
@@ -234,10 +236,11 @@ function buildScenarioFromOrder({ futureModules, completedCredits, completedQual
   };
 }
 
-function generateGradePlanPermutations(courses, bucket, targetGPA) {
+function generateGradePlanPermutations(courses, bucket, targetGPA, excludedKeys = new Set()) {
   const bucketCourses = getPlanCourses(courses, bucket);
   const completedModules = bucketCourses
     .filter((course) => course.status === 'Completed' && gradePoints[String(course.grade || '').toUpperCase()] !== undefined)
+    .filter((course) => !excludedKeys.has(moduleKey(course)))
     .map((course) => ({
       ...course,
       credits: Number(course.credits || 0),
@@ -393,7 +396,7 @@ function calculateLocalSummaryBase(modules) {
   };
 }
 
-function GpaTrio({ title, badge, gpaValue, credits, target, onTargetChange, requiredPlan, selected, onSelect, goalSubtitle }) {
+function GpaTrio({ title, badge, gpaValue, credits, target, onTargetChange, requiredPlan, selected, onSelect, goalSubtitle, onSelectPlan, planSelected }) {
   const pct = Math.min(100, Math.max(0, (gpaValue / 5) * 100));
   const tickDeg = (Math.min(5, Math.max(0, target)) / 5) * 360;
   const ringColor = !requiredPlan.possible
@@ -458,7 +461,11 @@ function GpaTrio({ title, badge, gpaValue, credits, target, onTargetChange, requ
         </div>
       </div>
 
-      <div className={`stat-card ${!requiredPlan.possible ? 'alert' : ''}`}>
+      <button
+        type="button"
+        className={`stat-card stat-card-button ${!requiredPlan.possible ? 'alert' : ''} ${planSelected ? 'selected' : ''}`}
+        onClick={onSelectPlan}
+      >
         <div className="stat-header">
           <span className="stat-label">Required average</span>
           <span className="stat-icon">Future</span>
@@ -468,7 +475,7 @@ function GpaTrio({ title, badge, gpaValue, credits, target, onTargetChange, requ
           {requiredPlan.message}
         </div>
         <div className="remaining-credits">Remaining credits: {requiredPlan.futureCredits}</div>
-      </div>
+      </button>
     </div>
   );
 }
@@ -488,6 +495,9 @@ function DashboardPage() {
   const [sortDirection, setSortDirection] = useState('asc');
   const [selectedGpaBucket, setSelectedGpaBucket] = useState('');
   const [gradePlanBucket, setGradePlanBucket] = useState('overall');
+  const [gradePlanOpen, setGradePlanOpen] = useState(false);
+  const [fgoCaps] = useState(() => fgoSchemes[localStorage.getItem('fgo_scheme') || '24au'] || fgoSchemes['24au']);
+  const [fgoView, setFgoView] = useState({ overall: false, primary: false, secondary: false });
   const [newModule, setNewModule] = useState(emptyModule);
   const [addModuleOpen, setAddModuleOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -1118,13 +1128,43 @@ function DashboardPage() {
   const currentSummaryCredits = doubleDegree
     ? summary.buckets?.[activeSummaryBucket]?.creditsCompleted || 0
     : summary.creditsCompleted || 0;
+
+  const primaryFgoPlan = useMemo(
+    () => optimiseFgo(courses, true, 'primary', fgoCaps.coreCap, fgoCaps.bdeCap),
+    [courses, fgoCaps]
+  );
+  const secondaryFgoPlan = useMemo(
+    () => optimiseFgo(courses, true, 'secondary', fgoCaps.coreCap, fgoCaps.bdeCap),
+    [courses, fgoCaps]
+  );
+  const overallFgoPlan = useMemo(
+    () => optimiseFgo(courses, false, 'primary', fgoCaps.coreCap, fgoCaps.bdeCap),
+    [courses, fgoCaps]
+  );
+  const primaryExcludedKeys = useMemo(
+    () => (fgoView.primary ? new Set(primaryFgoPlan.selectedModules.map(moduleKey)) : new Set()),
+    [fgoView.primary, primaryFgoPlan]
+  );
+  const secondaryExcludedKeys = useMemo(
+    () => (fgoView.secondary ? new Set(secondaryFgoPlan.selectedModules.map(moduleKey)) : new Set()),
+    [fgoView.secondary, secondaryFgoPlan]
+  );
+  const overallExcludedKeys = useMemo(
+    () => (fgoView.overall ? new Set(overallFgoPlan.selectedModules.map(moduleKey)) : new Set()),
+    [fgoView.overall, overallFgoPlan]
+  );
+
   const primaryRequiredPlan = useMemo(
-    () => buildRequiredAverageForGpa(courses, 'primary', primaryTargetGPA),
-    [courses, primaryTargetGPA]
+    () => buildRequiredAverageForGpa(courses, 'primary', primaryTargetGPA, primaryExcludedKeys),
+    [courses, primaryTargetGPA, primaryExcludedKeys]
   );
   const secondaryRequiredPlan = useMemo(
-    () => buildRequiredAverageForGpa(courses, 'secondary', secondaryTargetGPA),
-    [courses, secondaryTargetGPA]
+    () => buildRequiredAverageForGpa(courses, 'secondary', secondaryTargetGPA, secondaryExcludedKeys),
+    [courses, secondaryTargetGPA, secondaryExcludedKeys]
+  );
+  const overallRequiredPlan = useMemo(
+    () => buildRequiredAverageForGpa(courses, 'primary', targetGPA, overallExcludedKeys),
+    [courses, targetGPA, overallExcludedKeys]
   );
 
   const selectedGpaMeta = {
@@ -1140,15 +1180,111 @@ function DashboardPage() {
   const isPlanImpossible = plan && !plan.possible;
   const summaryRequiredPlan = doubleDegree
     ? (activeSummaryBucket === 'secondary' ? secondaryRequiredPlan : primaryRequiredPlan)
-    : {
-        requiredAverageGradePoint: requiredAverage,
-        futureCredits: remainingCredits,
-        possible: !isPlanImpossible,
-        message: plan?.message || 'Add planned modules to calculate this.'
-      };
+    : fgoView.overall
+      ? overallRequiredPlan
+      : {
+          requiredAverageGradePoint: requiredAverage,
+          futureCredits: remainingCredits,
+          possible: !isPlanImpossible,
+          message: plan?.message || 'Add planned modules to calculate this.'
+        };
+  const gradePlanTargetGPA = gradePlanBucket === 'primary'
+    ? primaryTargetGPA
+    : gradePlanBucket === 'secondary'
+      ? secondaryTargetGPA
+      : targetGPA;
+  const gradePlanExcludedKeys = gradePlanBucket === 'primary'
+    ? primaryExcludedKeys
+    : gradePlanBucket === 'secondary'
+      ? secondaryExcludedKeys
+      : overallExcludedKeys;
   const gradePlanPermutations = useMemo(
-    () => generateGradePlanPermutations(courses, gradePlanBucket, targetGPA),
-    [courses, gradePlanBucket, targetGPA]
+    () => generateGradePlanPermutations(courses, gradePlanBucket, gradePlanTargetGPA, gradePlanExcludedKeys),
+    [courses, gradePlanBucket, gradePlanTargetGPA, gradePlanExcludedKeys]
+  );
+
+  const gpaDetailPanel = selectedGpaMeta && (
+    <section className="gpa-detail-panel">
+      <div className="section-header">
+        <div>
+          <h2>{selectedGpaMeta.title}</h2>
+          <p>{selectedGpaMeta.label} courses included in this GPA calculation.</p>
+        </div>
+        <button className="btn-secondary" type="button" onClick={() => setSelectedGpaBucket('')}>
+          Close
+        </button>
+      </div>
+      <div className="table-wrap">
+        <table className="courses-table compact-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Course Name</th>
+              <th>Credits</th>
+              <th>BDE</th>
+              <th>Grade</th>
+              <th>Status</th>
+              {doubleDegree && <th>GPA Category</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {selectedGpaCourses.map((course) => (
+              <tr key={`gpa-${selectedGpaBucket}-${course._id || `${course.code}-${course.academicYear}`}`}>
+                <td data-label="Code">{renderInlineTextInput(course, 'code', 'code-input')}</td>
+                <td data-label="Course Name">{renderInlineTextInput(course, 'name', 'name-input')}</td>
+                <td data-label="Credits">{renderInlineTextInput(course, 'credits', 'credits-input')}</td>
+                <td data-label="BDE">{renderBdeCheckbox(course)}</td>
+                <td data-label="Grade">{renderInlineSelect(course, 'grade', gradeOptions, 'grade-select')}</td>
+                <td data-label="Status">{renderInlineSelect(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
+                {doubleDegree && (
+                  <td data-label="GPA Category">{renderInlineSelect(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
+                )}
+              </tr>
+            ))}
+            {selectedGpaCourses.length === 0 && (
+              <tr>
+                <td colSpan={doubleDegree ? '7' : '6'} className="empty-table">
+                  No completed modules are assigned to this GPA yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
+  const gradePlanPanel = gradePlanOpen && (
+    <section className="gpa-detail-panel plan-panel">
+      <div className="section-header">
+        <div>
+          <h2>Grade Plan Permutations</h2>
+          <p>Suggested grade combinations for your remaining credits.</p>
+        </div>
+        <button className="btn-secondary" type="button" onClick={() => setGradePlanOpen(false)}>
+          Close
+        </button>
+      </div>
+      <p>{gradePlanPermutations.message}</p>
+      <div className="plan-scenarios">
+        {gradePlanPermutations.scenarios.map((scenario) => (
+          <article className="plan-scenario" key={scenario.name}>
+            <div className="plan-scenario-header">
+              <strong>{scenario.name}</strong>
+              <span>Final GPA {scenario.finalGpa.toFixed(2)}</span>
+            </div>
+            <ul>
+              {scenario.assignments.map((item) => (
+                <li key={`${scenario.name}-${item.code}`}>
+                  <span>{item.code}</span>
+                  <strong>{item.suggestedGrade}</strong>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 
   return (
@@ -1186,7 +1322,9 @@ function DashboardPage() {
           <div className="gpa-trio-stack">
             {['primary', 'secondary'].map((bucket) => {
               const name = bucket === 'primary' ? degreeNames.primary : degreeNames.secondary;
-              const current = Number(summary.buckets?.[bucket]?.gpa || 0);
+              const rawGpa = Number(summary.buckets?.[bucket]?.gpa || 0);
+              const fgoPlan = bucket === 'primary' ? primaryFgoPlan : secondaryFgoPlan;
+              const current = fgoView[bucket] ? fgoPlan.projectedGpa : rawGpa;
               const credits = summary.buckets?.[bucket]?.creditsCompleted || 0;
               const target = bucket === 'primary' ? primaryTargetGPA : secondaryTargetGPA;
               const setTarget = bucket === 'primary' ? setPrimaryTargetGPA : setSecondaryTargetGPA;
@@ -1195,8 +1333,18 @@ function DashboardPage() {
               return (
                 <section className="degree-group" key={bucket}>
                   <header className="degree-group-header">
-                    <h2>{name}</h2>
-                    <span className="degree-group-tag">Degree {bucket === 'primary' ? '1' : '2'}</span>
+                    <div className="degree-group-title">
+                      <h2>{name}</h2>
+                      <span className="degree-group-tag">Degree {bucket === 'primary' ? '1' : '2'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={`fgo-projection-toggle ${fgoView[bucket] ? 'active' : ''}`}
+                      onClick={() => setFgoView((v) => ({ ...v, [bucket]: !v[bucket] }))}
+                      title={`Projected GPA after best-case FGO (${fgoCaps.label} scheme)`}
+                    >
+                      After FGO
+                    </button>
                   </header>
                   <GpaTrio
                     title={`${name} GPA`}
@@ -1209,75 +1357,50 @@ function DashboardPage() {
                     selected={selectedGpaBucket === bucket}
                     onSelect={() => setSelectedGpaBucket((current) => current === bucket ? '' : bucket)}
                     goalSubtitle={`Desired cumulative GPA for ${name}`}
+                    onSelectPlan={() => {
+                      setGradePlanBucket(bucket);
+                      setGradePlanOpen((current) => (current && gradePlanBucket === bucket) ? false : true);
+                    }}
+                    planSelected={gradePlanOpen && gradePlanBucket === bucket}
                   />
+                  {selectedGpaBucket === bucket && gpaDetailPanel}
+                  {gradePlanBucket === bucket && gradePlanPanel}
                 </section>
               );
             })}
           </div>
         ) : (
-          <GpaTrio
-            title="Current GPA"
-            badge={isGuest ? 'Guest' : '5.0 scale'}
-            gpaValue={currentSummaryGpa}
-            credits={currentSummaryCredits}
-            target={targetGPA}
-            onTargetChange={setTargetGPA}
-            requiredPlan={summaryRequiredPlan}
-            selected={selectedGpaBucket === activeSummaryBucket}
-            onSelect={() => setSelectedGpaBucket((current) => current === activeSummaryBucket ? '' : activeSummaryBucket)}
-            goalSubtitle="Desired cumulative GPA"
-          />
-        )}
-
-        {selectedGpaMeta && (
-          <section className="gpa-detail-panel">
-            <div className="section-header">
-              <div>
-                <h2>{selectedGpaMeta.title}</h2>
-                <p>{selectedGpaMeta.label} courses included in this GPA calculation.</p>
+          <>
+            <header className="degree-group-header">
+              <div className="degree-group-title">
+                <h2>{degreeNames.primary}</h2>
               </div>
-              <button className="btn-secondary" type="button" onClick={() => setSelectedGpaBucket('')}>
-                Close
+              <button
+                type="button"
+                className={`fgo-projection-toggle ${fgoView.overall ? 'active' : ''}`}
+                onClick={() => setFgoView((v) => ({ ...v, overall: !v.overall }))}
+                title={`Projected GPA after best-case FGO (${fgoCaps.label} scheme)`}
+              >
+                After FGO
               </button>
-            </div>
-            <div className="table-wrap">
-              <table className="courses-table compact-table">
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Course Name</th>
-                    <th>Credits</th>
-                    <th>BDE</th>
-                    <th>Grade</th>
-                    <th>Status</th>
-                    {doubleDegree && <th>GPA Category</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedGpaCourses.map((course) => (
-                    <tr key={`gpa-${selectedGpaBucket}-${course._id || `${course.code}-${course.academicYear}`}`}>
-                      <td data-label="Code">{renderInlineTextInput(course, 'code', 'code-input')}</td>
-                      <td data-label="Course Name">{renderInlineTextInput(course, 'name', 'name-input')}</td>
-                      <td data-label="Credits">{renderInlineTextInput(course, 'credits', 'credits-input')}</td>
-                      <td data-label="BDE">{renderBdeCheckbox(course)}</td>
-                      <td data-label="Grade">{renderInlineSelect(course, 'grade', gradeOptions, 'grade-select')}</td>
-                      <td data-label="Status">{renderInlineSelect(course, 'status', statusOptions, `status-select ${String(course.status).toLowerCase().replace(/\s+/g, '-')}`)}</td>
-                      {doubleDegree && (
-                        <td data-label="GPA Category">{renderInlineSelect(course, 'gpaBucket', gpaBucketOptions, 'gpa-bucket-select')}</td>
-                      )}
-                    </tr>
-                  ))}
-                  {selectedGpaCourses.length === 0 && (
-                    <tr>
-                      <td colSpan={doubleDegree ? '7' : '6'} className="empty-table">
-                        No completed modules are assigned to this GPA yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+            </header>
+            <GpaTrio
+              title="Current GPA"
+              badge={isGuest ? 'Guest' : '5.0 scale'}
+              gpaValue={fgoView.overall ? overallFgoPlan.projectedGpa : currentSummaryGpa}
+              credits={currentSummaryCredits}
+              target={targetGPA}
+              onTargetChange={setTargetGPA}
+              requiredPlan={summaryRequiredPlan}
+              selected={selectedGpaBucket === activeSummaryBucket}
+              onSelect={() => setSelectedGpaBucket((current) => current === activeSummaryBucket ? '' : activeSummaryBucket)}
+              goalSubtitle="Desired cumulative GPA"
+              onSelectPlan={() => setGradePlanOpen((current) => !current)}
+              planSelected={gradePlanOpen}
+            />
+            {gpaDetailPanel}
+            {gradePlanPanel}
+          </>
         )}
 
         <div className="dashboard-grid">
@@ -1472,41 +1595,6 @@ function DashboardPage() {
               </section>
             )}
 
-            <section className="side-panel plan-panel">
-              <h3>Grade Plan Permutations</h3>
-              {doubleDegree && (
-                <label className="plan-selector">
-                  Generate for
-                  <select value={gradePlanBucket} onChange={(event) => setGradePlanBucket(event.target.value)}>
-                    <option value="overall">Overall GPA</option>
-                    <option value="primary">{degreeNames.primary}</option>
-                    <option value="secondary">{degreeNames.secondary}</option>
-                  </select>
-                </label>
-              )}
-              <p>{gradePlanPermutations.message}</p>
-              <div className="plan-scenarios">
-                {gradePlanPermutations.scenarios.map((scenario) => (
-                  <article className="plan-scenario" key={scenario.name}>
-                    <div className="plan-scenario-header">
-                      <strong>{scenario.name}</strong>
-                      <span>Final GPA {scenario.finalGpa.toFixed(2)}</span>
-                    </div>
-                    <ul>
-                      {scenario.assignments.map((item) => (
-                        <li key={`${scenario.name}-${item.code}`}>
-                          <span>{item.code}</span>
-                          <strong>{item.suggestedGrade}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                  </article>
-                ))}
-              </div>
-              {!gradePlanPermutations.possible && plan?.message && (
-                <p>{plan.message}</p>
-              )}
-            </section>
           </aside>
         </div>
       </main>
