@@ -6,6 +6,8 @@ import Sidebar from '../components/Sidebar';
 import { getDisplayName, getInitials, getStoredUser, isGuestSession, clearSession } from '../services/session';
 import { updateProfile, changePassword, uploadProfilePicture, removeProfilePicture, deleteAccount } from '../services/authApi';
 import { fetchAcademicModules } from '../services/academicApi';
+import { isPasswordStrong, PASSWORD_REQUIREMENTS_MESSAGE } from '../utils/passwordPolicy';
+import PasswordStrengthHints from '../components/PasswordStrengthHints';
 
 const gradePoints = {
   'A+': 5, A: 5, 'A-': 4.5,
@@ -144,6 +146,11 @@ function ProfilePage() {
 
   const handleChangePassword = async (event) => {
     event.preventDefault();
+
+    if (!isPasswordStrong(newPassword)) {
+      showError(PASSWORD_REQUIREMENTS_MESSAGE);
+      return;
+    }
 
     if (newPassword !== confirmNewPassword) {
       showError('New password and confirmation do not match.');
@@ -426,6 +433,7 @@ function ProfilePage() {
                   autoComplete="new-password"
                 />
               </label>
+              {newPassword.length > 0 && <PasswordStrengthHints password={newPassword} />}
               <label className="profile-field">
                 Confirm new password
                 <input

@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const User = require('../models/user');
 const Module = require('../models/modules');
 const mongoose = require('mongoose');
+const { isPasswordStrong, PASSWORD_REQUIREMENTS_MESSAGE } = require('../utils/passwordPolicy');
 
 function sanitizeUser(user) {
     return {
@@ -33,6 +34,10 @@ exports.signup = async (req, res) => {
 
         if (!name || !school || !email || !password) {
             return res.status(400).json({ message: "Name, school, email and password are required." });
+        }
+
+        if (!isPasswordStrong(password)) {
+            return res.status(400).json({ message: PASSWORD_REQUIREMENTS_MESSAGE });
         }
 
         const normalizedEmail = email.trim().toLowerCase();
@@ -124,8 +129,8 @@ exports.changePassword = async (req, res) => {
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ message: "Current and new password are required." });
         }
-        if (newPassword.length < 6) {
-            return res.status(400).json({ message: "New password must be at least 6 characters." });
+        if (!isPasswordStrong(newPassword)) {
+            return res.status(400).json({ message: PASSWORD_REQUIREMENTS_MESSAGE });
         }
 
         const user = await User.findById(userId);

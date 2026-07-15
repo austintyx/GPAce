@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSignup } from "../hooks/useSignup";
 import { AUTH_API_URL } from "../config/api";
 import { EyeIcon, EyeOffIcon, ArrowRightIcon, SparkleIcon } from "../components/Icons";
+import PasswordStrengthHints from "../components/PasswordStrengthHints";
 import "../pages/LoginPage.css";
 
 // Defined outside LoginPage so it keeps a stable component identity across
@@ -352,6 +353,7 @@ export default function LoginPage({ onAuth } = {}) {
                                     onToggle={() => setShowPassword((v) => !v)}
                                     autoComplete="new-password"
                                 />
+                                {password.length > 0 && <PasswordStrengthHints password={password} />}
                                 <PasswordField
                                     id="signup-confirm-password"
                                     label="Confirm password"

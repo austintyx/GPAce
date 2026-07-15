@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AUTH_API_URL } from "../config/api";
+import { isPasswordStrong, PASSWORD_REQUIREMENTS_MESSAGE } from "../utils/passwordPolicy";
 
 const validEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -18,6 +19,7 @@ export function useSignup() {
         if (isDoubleDegree && !secondaryDegreeName.trim()) return setError("Enter your second degree.");
         if (!validEmail(email)) return setError("Enter a valid email address.");
         if (!password) return setError("Enter your password.");
+        if (!isPasswordStrong(password)) return setError(PASSWORD_REQUIREMENTS_MESSAGE);
         if (password !== confirm) return setError("Passwords do not match.");
 
         setLoading(true);
