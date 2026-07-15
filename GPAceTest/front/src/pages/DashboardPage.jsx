@@ -16,7 +16,7 @@ import {
 import { getStoredUser, isGuestSession } from '../services/session';
 
 const emptyModule = {
-  academicYear: '2025/2026',
+  academicYear: '',
   code: '',
   name: '',
   credits: 3,
@@ -29,6 +29,16 @@ const emptyModule = {
 const gradeOptions = ['-', 'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'D+', 'D', 'F', 'P', 'U', 'PASS', 'EX'];
 const statusOptions = ['Completed', 'In Progress', 'Planned'];
 const gpaBucketOptions = ['primary', 'secondary', 'shared', 'excluded', 'unassigned'];
+const academicYearOptions = [
+  'YEAR 1 SEMESTER 1',
+  'YEAR 1 SEMESTER 2',
+  'YEAR 2 SEMESTER 1',
+  'YEAR 2 SEMESTER 2',
+  'YEAR 3 SEMESTER 1',
+  'YEAR 3 SEMESTER 2',
+  'YEAR 4 SEMESTER 1',
+  'YEAR 4 SEMESTER 2'
+];
 const completedGradeSet = new Set(['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'D+', 'D', 'F', 'U', 'P', 'PASS', 'EX']);
 const gradePoints = {
   'A+': 5,
@@ -1503,62 +1513,89 @@ function DashboardPage() {
 
       {addModuleOpen && (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={handleCancelAddModule}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <h3>Add Future Module</h3>
-            <form className="module-form" onSubmit={(event) => { event.preventDefault(); handleAddModule(); }}>
-              <input
-                ref={addModuleCodeInputRef}
-                className="form-input"
-                placeholder="Code"
-                value={newModule.code}
-                onChange={(event) => setNewModule({ ...newModule, code: event.target.value })}
-              />
-              <input
-                className="form-input"
-                placeholder="Module name"
-                value={newModule.name}
-                onChange={(event) => setNewModule({ ...newModule, name: event.target.value })}
-              />
-              <input
-                className="form-input"
-                type="number"
-                min="0.5"
-                step="0.5"
-                placeholder="Credits"
-                value={newModule.credits}
-                onChange={(event) => setNewModule({ ...newModule, credits: Number(event.target.value) })}
-              />
-              <label className="form-checkbox">
+          <div className="modal-card modal-card-wide" onClick={(event) => event.stopPropagation()}>
+            <h3>Add Module</h3>
+            <p>Add a module to your course list.</p>
+            <form className="module-form-grid" onSubmit={(event) => { event.preventDefault(); handleAddModule(); }}>
+              <label className="form-label">
+                Module code
+                <input
+                  ref={addModuleCodeInputRef}
+                  className="form-input"
+                  placeholder="e.g. CZ2001"
+                  value={newModule.code}
+                  onChange={(event) => setNewModule({ ...newModule, code: event.target.value })}
+                />
+              </label>
+              <label className="form-label">
+                Credits
+                <input
+                  className="form-input"
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={newModule.credits}
+                  onChange={(event) => setNewModule({ ...newModule, credits: Number(event.target.value) })}
+                />
+              </label>
+              <label className="form-label span-2">
+                Module name
+                <input
+                  className="form-input"
+                  placeholder="e.g. Algorithms"
+                  value={newModule.name}
+                  onChange={(event) => setNewModule({ ...newModule, name: event.target.value })}
+                />
+              </label>
+              <label className="form-label">
+                Academic year
+                <select className="form-input" value={newModule.academicYear} onChange={(event) => setNewModule({ ...newModule, academicYear: event.target.value })}>
+                  <option value="">Nil</option>
+                  {academicYearOptions.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-label">
+                Status
+                <select
+                  className="form-input"
+                  value={newModule.status}
+                  onChange={(event) => setNewModule({ ...newModule, status: event.target.value, grade: event.target.value === 'Completed' ? newModule.grade : '-' })}
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+              {newModule.status === 'Completed' && (
+                <label className="form-label span-2">
+                  Grade
+                  <select className="form-input" value={newModule.grade} onChange={(event) => setNewModule({ ...newModule, grade: event.target.value })}>
+                    {gradeOptions.filter((grade) => grade !== '-').map((grade) => (
+                      <option key={grade}>{grade}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {doubleDegree && (
+                <label className="form-label span-2">
+                  GPA category
+                  <select className="form-input" value={newModule.gpaBucket} onChange={(event) => setNewModule({ ...newModule, gpaBucket: event.target.value })}>
+                    {gpaBucketOptions.map((bucket) => (
+                      <option key={bucket} value={bucket}>{bucket}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className="form-checkbox span-2">
                 <input
                   type="checkbox"
                   checked={newModule.isBde}
                   onChange={(event) => setNewModule({ ...newModule, isBde: event.target.checked })}
                 />
-                <span>BDE module</span>
+                <span>Counts as a BDE module</span>
               </label>
-              {doubleDegree && (
-                <select className="form-input" value={newModule.gpaBucket} onChange={(event) => setNewModule({ ...newModule, gpaBucket: event.target.value })}>
-                  {gpaBucketOptions.map((bucket) => (
-                    <option key={bucket} value={bucket}>{bucket}</option>
-                  ))}
-                </select>
-              )}
-              <select
-                className="form-input"
-                value={newModule.status}
-                onChange={(event) => setNewModule({ ...newModule, status: event.target.value, grade: event.target.value === 'Completed' ? newModule.grade : '-' })}
-              >
-                {statusOptions.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-              {newModule.status === 'Completed' && (
-                <select className="form-input" value={newModule.grade} onChange={(event) => setNewModule({ ...newModule, grade: event.target.value })}>
-                  {gradeOptions.filter((grade) => grade !== '-').map((grade) => (
-                    <option key={grade}>{grade}</option>
-                  ))}
-                </select>
-              )}
             </form>
             <div className="modal-actions">
               <button className="btn-secondary" type="button" onClick={handleCancelAddModule}>
