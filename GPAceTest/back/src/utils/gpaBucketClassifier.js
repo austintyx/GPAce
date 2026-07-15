@@ -182,6 +182,16 @@ function inferGpaBucket(user, moduleData, existingModules = [], programmeBucketM
   return 'unassigned';
 }
 
+// Single-degree accounts have no GPA category concept at all — every module
+// is 'primary', always. This must win over any client-supplied gpaBucket
+// (not just fall back to it when absent), otherwise a stale value from
+// before the account switched to single-degree — or one set via a direct
+// API call — would persist forever instead of self-healing.
+function resolveGpaBucket(user, moduleData, existingModules = [], programmeBucketMap = {}) {
+  if (!user.isDoubleDegree) return 'primary';
+  return moduleData.gpaBucket || inferGpaBucket(user, moduleData, existingModules, programmeBucketMap);
+}
+
 // Matches both real course codes (3-4 digit, e.g. "SC1003", "CC0001") and
 // the generic placeholder codes curriculum/GPA-mapping documents print for
 // elective slots (e.g. "SC3xxx", "SC4xxx", "BXxxxx") — see isCourseCode in
@@ -309,6 +319,7 @@ module.exports = {
   buildDocumentMap,
   classifyFromDocument,
   inferGpaBucket,
+  resolveGpaBucket,
   resolveProgrammeBuckets,
   lookupDocumentBucket
 };

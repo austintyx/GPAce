@@ -9,7 +9,8 @@ const userSchema = new mongoose.Schema({
   secondaryDegreeName: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  academicYear: { type: String }
+  academicYear: { type: String },
+  profilePicture: { type: String, default: '' }
 });
 
 module.exports = mongoose.model('User', userSchema);
