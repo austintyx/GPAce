@@ -157,6 +157,13 @@
   margin-bottom: 16px;
 }
 
+.degree-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
 .degree-group-header h2 {
   font-size: 17px;
 }
@@ -172,6 +179,35 @@
   border-radius: var(--radius-full);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.fgo-projection-toggle {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  white-space: nowrap;
+  transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+
+.fgo-projection-toggle:hover {
+  border-color: var(--color-primary-200);
+  color: var(--color-ink);
+}
+
+.fgo-projection-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.fgo-projection-toggle.active {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-200);
+  color: var(--color-primary-dark);
 }
 
 .gpa-trio {
@@ -226,10 +262,10 @@
 
 .gpa-ring-tick {
   position: absolute;
-  top: 4px;
+  top: 2px;
   left: 50%;
   width: 3px;
-  height: 11px;
+  height: 8px;
   background: var(--color-ink);
   border-radius: 2px;
   transform: translateX(-50%);
@@ -425,7 +461,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  margin: -12px 0 32px;
+  margin: 20px 0 32px;
   padding: 24px;
   box-shadow: var(--shadow-sm);
 }
@@ -1234,6 +1270,7 @@
 
 .plan-scenarios {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
 }
 
