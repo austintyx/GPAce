@@ -1,0 +1,15 @@
+{
+  "name": "gpace",
+  "version": "1.0.0",
+  "description": "GPAce is a full-stack web app for university students to track academic progress, calculate GPA, import transcripts/curriculum PDFs, plan future grades, organise modules by semester, and optimise pass/fail choices through the FGO Planner.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "puppeteer": "^24.43.1"
+  }
+}
