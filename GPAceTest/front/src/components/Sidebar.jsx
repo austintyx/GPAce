@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { getDisplayName, getInitials, clearSession } from "../services/session";
+import { getDisplayName, getInitials, getStoredUser, clearSession } from "../services/session";
 import { DashboardIcon, PlannerIcon, TargetIcon, LogoutIcon, MenuIcon, CloseIcon } from "./Icons";
 import "./Sidebar.css";
 
@@ -15,6 +15,7 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const displayName = getDisplayName();
   const initials = getInitials(displayName);
+  const profilePicture = getStoredUser().profilePicture;
 
   const handleLogout = () => {
     clearSession();
@@ -55,7 +56,11 @@ export default function Sidebar() {
       </nav>
 
       <div className={`user-profile ${mobileOpen ? "user-profile-open" : ""}`}>
-        <div className="profile-avatar">{initials}</div>
+        {profilePicture ? (
+          <img className="profile-avatar" src={profilePicture} alt={displayName} />
+        ) : (
+          <div className="profile-avatar">{initials}</div>
+        )}
         <div className="profile-info">
           <div className="profile-name">{displayName}</div>
           <Link className="profile-link" to="/profile" onClick={() => setMobileOpen(false)}>View Profile</Link>

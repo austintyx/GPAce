@@ -3,7 +3,7 @@ const User = require('../models/user');
 const { calculateGpa, calculateGpaByBucket, buildGradePlan } = require('../utils/gpa');
 const { parseTranscriptText } = require('../utils/transcriptParser');
 const { parseCurriculumText, normaliseModuleCategory } = require('../utils/curriculumParser');
-const { buildDocumentMap, inferGpaBucket, resolveProgrammeBuckets, lookupDocumentBucket } = require('../utils/gpaBucketClassifier');
+const { buildDocumentMap, inferGpaBucket, resolveGpaBucket, resolveProgrammeBuckets, lookupDocumentBucket } = require('../utils/gpaBucketClassifier');
 const { extractPdfText, extractTranscriptPdfText } = require('../utils/pdfTextExtractor');
 
 function getUserId(req) {
@@ -90,7 +90,7 @@ exports.importTranscript = async (req, res) => {
     const savedModules = [];
     for (const moduleData of parsed.modules) {
       const academicYear = moduleData.academicYear || req.body.academicYear || user.academicYear || 'Unknown';
-      const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData, existingModules, programmeBucketMap);
+      const gpaBucket = resolveGpaBucket(user, moduleData, existingModules, programmeBucketMap);
       const moduleCategory = resolveModuleCategory(moduleData);
       const isBde = resolveIsBde(moduleData);
       const saved = await Module.findOneAndUpdate(
@@ -139,7 +139,7 @@ exports.uploadTranscript = async (req, res) => {
     const savedModules = [];
     for (const moduleData of parsed.modules) {
       const academicYear = moduleData.academicYear || user.academicYear || 'Unknown';
-      const gpaBucket = moduleData.gpaBucket || inferGpaBucket(user, moduleData, existingModules, programmeBucketMap);
+      const gpaBucket = resolveGpaBucket(user, moduleData, existingModules, programmeBucketMap);
       const moduleCategory = resolveModuleCategory(moduleData);
       const isBde = resolveIsBde(moduleData);
       const saved = await Module.findOneAndUpdate(
@@ -204,7 +204,7 @@ exports.uploadCurriculum = async (req, res) => {
         {
           ...moduleData,
           user: user._id,
-          gpaBucket: moduleData.gpaBucket || inferGpaBucket(user, moduleData, existingModules),
+          gpaBucket: resolveGpaBucket(user, moduleData, existingModules),
           moduleCategory: resolveModuleCategory(moduleData),
           isBde: resolveIsBde(moduleData)
         },
@@ -237,7 +237,10 @@ exports.listModules = async (req, res) => {
     if (!user) return;
 
     const modules = await Module.find({ user: user._id }).sort({ academicYear: 1, code: 1 });
-    res.json({ modules, summary: buildAcademicSummary(user, modules), user });
+    const normalizedModules = user.isDoubleDegree
+      ? modules
+      : modules.map((module) => ({ ...module.toObject(), gpaBucket: 'primary' }));
+    res.json({ modules: normalizedModules, summary: buildAcademicSummary(user, modules), user });
   } catch (err) {
     res.status(500).json({ message: 'Unable to fetch modules.' });
   }
@@ -278,7 +281,7 @@ exports.upsertModule = async (req, res) => {
         status,
         moduleCategory: moduleCategory || (isBde ? 'BDE' : 'Core'),
         isBde,
-        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear }, existingModules)
+        gpaBucket: resolveGpaBucket(user, { gpaBucket, code, name, academicYear }, existingModules)
       },
       { new: true, upsert: true, runValidators: true }
     );
@@ -325,7 +328,7 @@ exports.updateModule = async (req, res) => {
         ...(moduleCategory ? { moduleCategory } : {}),
         ...(typeof isBde === 'boolean' ? { isBde } : {}),
         ...(typeof isBde === 'boolean' && !moduleCategory ? { moduleCategory: isBde ? 'BDE' : 'Core' } : {}),
-        gpaBucket: gpaBucket || inferGpaBucket(user, { code, name, academicYear }, existingModules)
+        gpaBucket: resolveGpaBucket(user, { gpaBucket, code, name, academicYear }, existingModules)
       },
       { new: true, runValidators: true }
     );
