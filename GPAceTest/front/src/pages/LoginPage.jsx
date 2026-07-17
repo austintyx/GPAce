@@ -4,6 +4,7 @@ import { useSignup } from "../hooks/useSignup";
 import { AUTH_API_URL } from "../config/api";
 import { EyeIcon, EyeOffIcon, ArrowRightIcon, SparkleIcon } from "../components/Icons";
 import PasswordStrengthHints from "../components/PasswordStrengthHints";
+import DegreeCombobox from "../components/DegreeCombobox";
 import "../pages/LoginPage.css";
 
 // Defined outside LoginPage so it keeps a stable component identity across
@@ -79,33 +80,34 @@ export default function LoginPage({ onAuth } = {}) {
     // signup form
     const [name, setName] = useState("");
     const [confirm, setConfirm] = useState("");
-    const [school, setSchool] = useState("");
     const [course, setCourse] = useState("");
     const [isDoubleDegree, setIsDoubleDegree] = useState(false);
+    const [primaryDegreeName, setPrimaryDegreeName] = useState("");
     const [secondaryDegreeName, setSecondaryDegreeName] = useState("");
 
     const { handleSignup: signup, loading: signupLoading, error: signupError, setError: setSignupError } = useSignup();
 
-    // List of schools
-    const schools = [
-        "Nanyang Technological University (NTU)",
-        "National University of Singapore (NUS)",
-        "Singapore Management University (SMU)",
-        "Singapore University of Technology and Design (SUTD)",
-        "Singapore Institute of Technology (SIT)",
-        "Singapore University of Social Sciences (SUSS)",
-        "Singapore Institute of Management (SIM)",
-        "Other"
-    ];
+    const handleProgrammeSelect = (programme) => {
+        setCourse(programme.name);
+        if (programme.category === 'doubleDegree') {
+            setIsDoubleDegree(true);
+            setPrimaryDegreeName(programme.primary);
+            setSecondaryDegreeName(programme.secondary);
+        } else {
+            setIsDoubleDegree(false);
+            setPrimaryDegreeName(programme.name);
+            setSecondaryDegreeName('');
+        }
+    };
 
     const resetForm = () => {
-        setSchool("");
         setEmail("");
         setPassword("");
         setName("");
         setConfirm("");
         setCourse("");
         setIsDoubleDegree(false);
+        setPrimaryDegreeName("");
         setSecondaryDegreeName("");
         setRemember(false);
         setError("");
@@ -177,13 +179,12 @@ export default function LoginPage({ onAuth } = {}) {
         e.preventDefault();
         signup({
             name,
-            school,
             course,
             email,
             password,
             confirm,
             isDoubleDegree,
-            primaryDegreeName: course,
+            primaryDegreeName,
             secondaryDegreeName,
             onAuth
         });
@@ -289,49 +290,18 @@ export default function LoginPage({ onAuth } = {}) {
                                     <input className="login-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
                                 </label>
                                 <label className="login-label">
-                                    School
-                                    <select
-                                        className="login-input"
-                                        value={school}
-                                        onChange={(e) => setSchool(e.target.value)}
-                                        required
-                                    >
-                                        <option value="">-- Select your school --</option>
-                                        {schools.map((schoolName) => (
-                                            <option key={schoolName} value={schoolName}>
-                                                {schoolName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-                                <label className="login-label">
-                                    Course
-                                    <input
-                                        className="login-input"
+                                    Programme
+                                    <DegreeCombobox
+                                        inputClassName="login-input"
                                         value={course}
-                                        onChange={(e) => setCourse(e.target.value)}
+                                        onSelect={handleProgrammeSelect}
                                         required
                                     />
-                                </label>
-                                <label className="login-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={isDoubleDegree}
-                                        onChange={(e) => setIsDoubleDegree(e.target.checked)}
-                                    />
-                                    <span>I am studying a double degree</span>
                                 </label>
                                 {isDoubleDegree && (
-                                    <label className="login-label">
-                                        Second degree
-                                        <input
-                                            className="login-input"
-                                            value={secondaryDegreeName}
-                                            onChange={(e) => setSecondaryDegreeName(e.target.value)}
-                                            placeholder="Example: Computer Science"
-                                            required
-                                        />
-                                    </label>
+                                    <p className="programme-double-degree-note">
+                                        Double degree — {primaryDegreeName} and {secondaryDegreeName} GPAs will be tracked separately.
+                                    </p>
                                 )}
                                 <label className="login-label">
                                     Email

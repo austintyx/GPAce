@@ -252,7 +252,7 @@ exports.upsertModule = async (req, res) => {
     if (!user) return;
 
     const {
-      academicYear = user.academicYear || 'Unknown',
+      academicYear: rawAcademicYear,
       code,
       name,
       credits,
@@ -262,6 +262,7 @@ exports.upsertModule = async (req, res) => {
       moduleCategory,
       isBde = false
     } = req.body;
+    const academicYear = rawAcademicYear || user.academicYear || 'Unknown';
 
     if (!code || !name || !credits) {
       return res.status(400).json({ message: 'code, name and credits are required.' });
@@ -299,7 +300,7 @@ exports.updateModule = async (req, res) => {
     if (!user) return;
 
     const {
-      academicYear = user.academicYear || 'Unknown',
+      academicYear: rawAcademicYear,
       code,
       name,
       credits,
@@ -309,6 +310,7 @@ exports.updateModule = async (req, res) => {
       moduleCategory,
       isBde
     } = req.body;
+    const academicYear = rawAcademicYear || user.academicYear || 'Unknown';
 
     if (!code || !name || !credits) {
       return res.status(400).json({ message: 'code, name and credits are required.' });

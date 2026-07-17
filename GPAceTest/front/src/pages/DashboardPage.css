@@ -70,7 +70,7 @@
   position: fixed;
   top: 82px;
   right: 20px;
-  z-index: 100;
+  z-index: 260;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1220,11 +1220,58 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 24px;
 }
 
 .module-form-grid .span-2 {
   grid-column: 1 / -1;
+}
+
+.module-form-classification {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+  margin-bottom: 24px;
+}
+
+.module-form-classification-select {
+  flex: 1;
+  min-width: 160px;
+}
+
+.module-flag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+
+.module-flag-chip:hover {
+  border-color: var(--color-primary-200);
+  color: var(--color-ink);
+}
+
+.module-flag-chip:focus-within {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.module-flag-chip.checked {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-200);
+  color: var(--color-primary-dark);
 }
 
 .modal-actions {
