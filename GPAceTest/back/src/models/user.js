@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true},
-  school: { type: String, required: true },
   course: { type: String },
   isDoubleDegree: { type: Boolean, default: false },
   primaryDegreeName: { type: String },

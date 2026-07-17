@@ -9,7 +9,6 @@ function sanitizeUser(user) {
         id: user._id,
         name: user.name,
         email: user.email,
-        school: user.school,
         course: user.course,
         isDoubleDegree: Boolean(user.isDoubleDegree),
         primaryDegreeName: user.primaryDegreeName || user.course || '',
@@ -30,10 +29,10 @@ exports.signup = async (req, res) => {
             return res.status(503).json({ message: "Database is not connected. Make sure MongoDB is running." });
         }
 
-        const { name, school, course, email, password, isDoubleDegree, primaryDegreeName, secondaryDegreeName } = req.body;
+        const { name, course, email, password, isDoubleDegree, primaryDegreeName, secondaryDegreeName } = req.body;
 
-        if (!name || !school || !email || !password) {
-            return res.status(400).json({ message: "Name, school, email and password are required." });
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: "Name, email and password are required." });
         }
 
         if (!isPasswordStrong(password)) {
@@ -52,7 +51,6 @@ exports.signup = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = new User({
             name: name.trim(),
-            school: school.trim(),
             course: course ? course.trim() : "",
             isDoubleDegree: Boolean(isDoubleDegree),
             primaryDegreeName: primaryDegreeName ? primaryDegreeName.trim() : (course ? course.trim() : ""),

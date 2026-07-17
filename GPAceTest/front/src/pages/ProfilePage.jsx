@@ -8,6 +8,7 @@ import { updateProfile, changePassword, uploadProfilePicture, removeProfilePictu
 import { fetchAcademicModules } from '../services/academicApi';
 import { isPasswordStrong, PASSWORD_REQUIREMENTS_MESSAGE } from '../utils/passwordPolicy';
 import PasswordStrengthHints from '../components/PasswordStrengthHints';
+import DegreeCombobox from '../components/DegreeCombobox';
 
 const gradePoints = {
   'A+': 5, A: 5, 'A-': 4.5,
@@ -105,6 +106,19 @@ function ProfilePage() {
     setIsDoubleDegree(Boolean(sourceUser.isDoubleDegree));
     setPrimaryDegreeName(sourceUser.primaryDegreeName || sourceUser.course || '');
     setSecondaryDegreeName(sourceUser.secondaryDegreeName || '');
+  };
+
+  const handleProgrammeSelect = (programme) => {
+    setCourse(programme.name);
+    if (programme.category === 'doubleDegree') {
+      setIsDoubleDegree(true);
+      setPrimaryDegreeName(programme.primary);
+      setSecondaryDegreeName(programme.secondary);
+    } else {
+      setIsDoubleDegree(false);
+      setPrimaryDegreeName(programme.name);
+      setSecondaryDegreeName('');
+    }
   };
 
   const handleStartEditProfile = () => {
@@ -327,10 +341,6 @@ function ProfilePage() {
               <strong>{user.email || 'Not available for guest users'}</strong>
             </div>
             <div className="detail-row">
-              <span>School</span>
-              <strong>{user.school || 'Not provided'}</strong>
-            </div>
-            <div className="detail-row">
               <span>Course</span>
               <strong>{user.course || 'Not provided'}</strong>
             </div>
@@ -372,26 +382,13 @@ function ProfilePage() {
                 <input value={name} onChange={(event) => setName(event.target.value)} />
               </label>
               <label className="profile-field">
-                Course
-                <input value={course} onChange={(event) => setCourse(event.target.value)} />
-              </label>
-              <label className="profile-checkbox">
-                <input
-                  type="checkbox"
-                  checked={isDoubleDegree}
-                  onChange={(event) => setIsDoubleDegree(event.target.checked)}
-                />
-                <span>I am studying a double degree</span>
-              </label>
-              <label className="profile-field">
-                Degree 1 GPA name
-                <input value={primaryDegreeName} onChange={(event) => setPrimaryDegreeName(event.target.value)} />
+                Programme
+                <DegreeCombobox value={course} onSelect={handleProgrammeSelect} />
               </label>
               {isDoubleDegree && (
-                <label className="profile-field">
-                  Degree 2 GPA name
-                  <input value={secondaryDegreeName} onChange={(event) => setSecondaryDegreeName(event.target.value)} />
-                </label>
+                <p className="programme-double-degree-note">
+                  Double degree — {primaryDegreeName} and {secondaryDegreeName} GPAs will be tracked separately.
+                </p>
               )}
               <div className="profile-form-actions">
                 <button className="profile-save btn-primary" type="submit" disabled={saving}>
