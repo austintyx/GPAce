@@ -10,11 +10,10 @@ export function useSignup() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    const handleSignup = async ({ name, school, course, email, password, confirm, isDoubleDegree, primaryDegreeName, secondaryDegreeName, onAuth }) => {
+    const handleSignup = async ({ name, course, email, password, confirm, isDoubleDegree, primaryDegreeName, secondaryDegreeName, onAuth }) => {
         setError("");
 
         if (!name.trim()) return setError("Enter your full name.");
-        if (!school) return setError("Select your school.");
         if (!course.trim()) return setError("Enter your course.");
         if (isDoubleDegree && !secondaryDegreeName.trim()) return setError("Enter your second degree.");
         if (!validEmail(email)) return setError("Enter a valid email address.");
@@ -30,7 +29,6 @@ export function useSignup() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name,
-                    school,
                     course,
                     email,
                     password,

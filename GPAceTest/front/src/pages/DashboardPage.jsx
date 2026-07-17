@@ -116,6 +116,10 @@ function getGradeTier(grade) {
   return gradeTierMap[String(grade || '').toUpperCase()] || 'unset';
 }
 
+function capitalize(word) {
+  return String(word).charAt(0).toUpperCase() + String(word).slice(1);
+}
+
 const honoursBands = [
   { min: 4.5, label: 'Highest Distinction', tier: 'highest-distinction' },
   { min: 4.0, label: 'Distinction', tier: 'distinction' },
@@ -885,7 +889,7 @@ function DashboardPage() {
           title="Click to edit"
           onClick={() => setEditableCell({ courseKey, field })}
         >
-          {value}
+          {field === 'gpaBucket' ? capitalize(value) : value}
         </span>
       );
     }
@@ -906,7 +910,7 @@ function DashboardPage() {
         }}
       >
         {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>{field === 'gpaBucket' ? capitalize(option) : option}</option>
         ))}
       </select>
     );
@@ -940,7 +944,7 @@ function DashboardPage() {
         onChange={(event) => handleModuleFieldChange(course, field, event.target.value)}
       >
         {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>{field === 'gpaBucket' ? capitalize(option) : option}</option>
         ))}
       </select>
     );
@@ -1370,37 +1374,39 @@ function DashboardPage() {
             })}
           </div>
         ) : (
-          <>
-            <header className="degree-group-header">
-              <div className="degree-group-title">
-                <h2>{degreeNames.primary}</h2>
-              </div>
-              <button
-                type="button"
-                className={`fgo-projection-toggle ${fgoView.overall ? 'active' : ''}`}
-                onClick={() => setFgoView((v) => ({ ...v, overall: !v.overall }))}
-                title={`Projected GPA after best-case FGO (${fgoCaps.label} scheme)`}
-              >
-                After FGO
-              </button>
-            </header>
-            <GpaTrio
-              title="Current GPA"
-              badge={isGuest ? 'Guest' : '5.0 scale'}
-              gpaValue={fgoView.overall ? overallFgoPlan.projectedGpa : currentSummaryGpa}
-              credits={currentSummaryCredits}
-              target={targetGPA}
-              onTargetChange={setTargetGPA}
-              requiredPlan={summaryRequiredPlan}
-              selected={selectedGpaBucket === activeSummaryBucket}
-              onSelect={() => setSelectedGpaBucket((current) => current === activeSummaryBucket ? '' : activeSummaryBucket)}
-              goalSubtitle="Desired cumulative GPA"
-              onSelectPlan={() => setGradePlanOpen((current) => !current)}
-              planSelected={gradePlanOpen}
-            />
-            {gpaDetailPanel}
-            {gradePlanPanel}
-          </>
+          <div className="gpa-trio-stack">
+            <section className="degree-group">
+              <header className="degree-group-header">
+                <div className="degree-group-title">
+                  <h2>{degreeNames.primary}</h2>
+                </div>
+                <button
+                  type="button"
+                  className={`fgo-projection-toggle ${fgoView.overall ? 'active' : ''}`}
+                  onClick={() => setFgoView((v) => ({ ...v, overall: !v.overall }))}
+                  title={`Projected GPA after best-case FGO (${fgoCaps.label} scheme)`}
+                >
+                  After FGO
+                </button>
+              </header>
+              <GpaTrio
+                title="Current GPA"
+                badge={isGuest ? 'Guest' : '5.0 scale'}
+                gpaValue={fgoView.overall ? overallFgoPlan.projectedGpa : currentSummaryGpa}
+                credits={currentSummaryCredits}
+                target={targetGPA}
+                onTargetChange={setTargetGPA}
+                requiredPlan={summaryRequiredPlan}
+                selected={selectedGpaBucket === activeSummaryBucket}
+                onSelect={() => setSelectedGpaBucket((current) => current === activeSummaryBucket ? '' : activeSummaryBucket)}
+                goalSubtitle="Desired cumulative GPA"
+                onSelectPlan={() => setGradePlanOpen((current) => !current)}
+                planSelected={gradePlanOpen}
+              />
+              {gpaDetailPanel}
+              {gradePlanPanel}
+            </section>
+          </div>
         )}
 
         <div className="dashboard-grid">
@@ -1604,7 +1610,8 @@ function DashboardPage() {
           <div className="modal-card modal-card-wide" onClick={(event) => event.stopPropagation()}>
             <h3>Add Module</h3>
             <p>Add a module to your course list.</p>
-            <form className="module-form-grid" onSubmit={(event) => { event.preventDefault(); handleAddModule(); }}>
+            <form onSubmit={(event) => { event.preventDefault(); handleAddModule(); }}>
+              <div className="module-form-grid">
               <label className="form-label">
                 Module code
                 <input
@@ -1666,24 +1673,28 @@ function DashboardPage() {
                   </select>
                 </label>
               )}
-              {doubleDegree && (
-                <label className="form-label span-2">
-                  GPA category
-                  <select className="form-input" value={newModule.gpaBucket} onChange={(event) => setNewModule({ ...newModule, gpaBucket: event.target.value })}>
-                    {gpaBucketOptions.map((bucket) => (
-                      <option key={bucket} value={bucket}>{bucket}</option>
-                    ))}
-                  </select>
+              </div>
+
+              <div className="module-form-classification">
+                {doubleDegree && (
+                  <label className="form-label module-form-classification-select">
+                    GPA category
+                    <select className="form-input" value={newModule.gpaBucket} onChange={(event) => setNewModule({ ...newModule, gpaBucket: event.target.value })}>
+                      {gpaBucketOptions.map((bucket) => (
+                        <option key={bucket} value={bucket}>{capitalize(bucket)}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label className={`module-flag-chip ${newModule.isBde ? 'checked' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={newModule.isBde}
+                    onChange={(event) => setNewModule({ ...newModule, isBde: event.target.checked })}
+                  />
+                  BDE
                 </label>
-              )}
-              <label className="form-checkbox span-2">
-                <input
-                  type="checkbox"
-                  checked={newModule.isBde}
-                  onChange={(event) => setNewModule({ ...newModule, isBde: event.target.checked })}
-                />
-                <span>Counts as a BDE module</span>
-              </label>
+              </div>
             </form>
             <div className="modal-actions">
               <button className="btn-secondary" type="button" onClick={handleCancelAddModule}>

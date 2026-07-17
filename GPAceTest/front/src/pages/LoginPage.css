@@ -233,6 +233,17 @@
     height: 15px;
 }
 
+.programme-double-degree-note {
+    margin: -6px 0 14px;
+    padding: 8px 12px;
+    background: var(--color-primary-50);
+    color: var(--color-primary-dark);
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
 .login-row {
     display: flex;
     gap: 10px;
